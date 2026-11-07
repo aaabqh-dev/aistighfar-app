@@ -1,0 +1,22 @@
+{
+  "appId": "com.yellowline.tasbih",
+  "appName": "مسبحة الاستغفار",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#e9f5e6",
+    "includePlugins": [
+      "@capacitor/app",
+      "@capacitor/filesystem",
+      "@capacitor/haptics",
+      "@capacitor/local-notifications",
+      "@capacitor/share"
+    ]
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_tasbih",
+      "iconColor": "#2d5a27",
+      "sound": "astaghfar.wav"
+    }
+  }
+}

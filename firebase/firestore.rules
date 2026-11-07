@@ -1,0 +1,39 @@
+rules_version = '2';
+
+// قواعد الأمان لقاعدة بيانات «مسبحة الاستغفار»
+// انسخ هذا الملف كاملاً إلى: Firebase Console ← Firestore Database ← Rules ← Publish
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // بيانات المستخدم (نسخة احتياطية + كود دعوته): لا يقرأها ولا يكتبها إلا صاحبها
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // أكواد الدعوة: يقرأ أي مستخدم كوداً واحداً بعينه (للتحقق منه)، ولا يمكن سرد كل الأكواد
+    match /codes/{code} {
+      allow get: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && code.matches('^[A-Z0-9]{4,12}$');
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+    }
+
+    // المدعوون: كل مدعو يحفظ "عدده فقط" بدون أي اسم.
+    // الداعي يستطيع قراءة المستندات التي تشير إليه فقط (لجمع العدد).
+    match /referrals/{uid} {
+      allow read: if request.auth != null
+        && (request.auth.uid == uid || resource.data.referrer == request.auth.uid);
+      allow create, update: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['referrer', 'total', 'updatedAt'])
+        && request.resource.data.referrer is string
+        && request.resource.data.referrer != uid
+        && request.resource.data.total is int
+        && request.resource.data.total >= 0
+        && request.resource.data.total <= 100000000
+        && (resource == null || resource.data.referrer == request.resource.data.referrer);
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}

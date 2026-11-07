@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#2d5a27">
+  <title>مسبحة الاستغفار</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <main id="screens">
+
+    <!-- ===================== المسبحة ===================== -->
+    <section id="tab-home" class="screen active" aria-label="المسبحة">
+      <header class="top">
+        <button id="streakChip" class="chip streak" type="button" hidden>🔥 <span></span></button>
+        <button id="dhikrChip" class="chip dhikr" type="button" aria-haspopup="dialog">
+          <span id="dhikrChipText">أستغفر الله</span> <span class="caret">▾</span>
+        </button>
+      </header>
+
+      <div id="homeCards"></div>
+
+      <div class="counter-wrap">
+        <div class="ring-box">
+          <svg class="ring" viewBox="0 0 220 220" aria-hidden="true">
+            <circle class="ring-track" cx="110" cy="110" r="100"></circle>
+            <circle id="ringBar" class="ring-bar" cx="110" cy="110" r="100"></circle>
+          </svg>
+          <button id="tapBtn" class="tap-btn" type="button" aria-label="اضغط للذكر">
+            <span id="tapText" class="tap-text">أستغفر الله</span>
+            <span id="tapCount" class="tap-count">٠</span>
+          </button>
+        </div>
+        <p id="progressLine" class="progress-line"></p>
+        <div class="home-actions">
+          <button id="fullscreenBtn" class="btn ghost" type="button">⛶ وضع اللمس الكامل</button>
+        </div>
+      </div>
+
+      <article id="dailyText" class="card quote"></article>
+    </section>
+
+    <!-- ===================== الإحصائيات ===================== -->
+    <section id="tab-stats" class="screen" aria-label="الإحصائيات">
+      <header class="top"><h2>الإحصائيات</h2>
+        <select id="statsDhikr" class="select small" aria-label="الذكر"></select>
+      </header>
+      <div class="segmented" id="statsRange" role="tablist">
+        <button data-r="week" class="on" type="button">الأسبوع</button>
+        <button data-r="month" type="button">الشهر</button>
+        <button data-r="year" type="button">السنة</button>
+      </div>
+      <div class="card chart-card">
+        <div class="chart-head">
+          <button id="chartPrev" class="icon-btn" type="button" aria-label="السابق">›</button>
+          <div><div id="chartTitle" class="chart-title"></div><div id="chartSub" class="chart-sub"></div></div>
+          <button id="chartNext" class="icon-btn" type="button" aria-label="التالي">‹</button>
+        </div>
+        <div id="chart" class="chart"></div>
+      </div>
+      <div id="tiles" class="tiles"></div>
+      <div class="card">
+        <h3>آخر ١٢ شهراً</h3>
+        <div id="heatmap" class="heatmap-wrap"></div>
+        <div class="heat-legend"><span>أقل</span><i class="h0"></i><i class="h1"></i><i class="h2"></i><i class="h3"></i><i class="h4"></i><span>أكثر</span></div>
+      </div>
+      <div class="card">
+        <div class="row-between"><h3>الأوسمة</h3><span id="achCount" class="muted"></span></div>
+        <div id="achievements" class="badges"></div>
+      </div>
+      <button id="shareProgressBtn" class="btn primary block" type="button">📤 شارك إنجازك</button>
+    </section>
+
+    <!-- ===================== الفضل ===================== -->
+    <section id="tab-virtue" class="screen" aria-label="فضل الاستغفار">
+      <header class="top"><h2>فضل الاستغفار</h2></header>
+      <div class="card">
+        <h3>ثمرات الاستغفار</h3>
+        <div id="benefits" class="benefits"></div>
+      </div>
+      <article class="card sayyid">
+        <h3>سيد الاستغفار</h3>
+        <p id="sayyidText" class="quran"></p>
+        <p id="sayyidVirtue" class="virtue"></p>
+        <p id="sayyidRef" class="ref"></p>
+      </article>
+      <div class="card"><h3>من القرآن الكريم</h3><div id="ayatList" class="texts"></div></div>
+      <div class="card"><h3>من السنة النبوية</h3><div id="hadithList" class="texts"></div></div>
+    </section>
+
+    <!-- ===================== الإعدادات ===================== -->
+    <section id="tab-settings" class="screen" aria-label="الإعدادات">
+      <header class="top"><h2>الإعدادات</h2></header>
+
+      <div class="card">
+        <h3>🎯 هدفك اليومي</h3>
+        <div id="goalChips" class="chips"></div>
+        <div class="row">
+          <input id="goalCustom" class="input" type="number" inputmode="numeric" min="1" max="100000" placeholder="رقم آخر">
+          <button id="goalCustomBtn" class="btn" type="button">حفظ</button>
+        </div>
+        <p class="hint">كل ما ثبتّ على هدفك أسبوعين، نقترح عليك ترفعه 🌟</p>
+      </div>
+
+      <div class="card">
+        <div class="row-between">
+          <h3>🔔 التذكيرات</h3>
+          <label class="toggle"><input type="checkbox" id="remEnabled"><span class="slider"></span></label>
+        </div>
+        <div id="remBody">
+          <div id="exactRow" class="warn-row" hidden>
+            <span>لوصول التذكير في دقيقته بالضبط اسمح بـ «المنبهات والتذكيرات»</span>
+            <button id="exactBtn" class="btn small" type="button">السماح</button>
+          </div>
+
+          <div class="field">
+            <span class="label">نوع التنبيه</span>
+            <div class="segmented" id="soundMode">
+              <button data-v="voice" type="button">🔊 صوت</button>
+              <button data-v="vibrate" type="button">📳 اهتزاز</button>
+              <button data-v="silent" type="button">🔕 صامت</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <span class="label">⏰ أوقات محددة يومياً</span>
+            <div class="row">
+              <input type="time" id="timeInput" class="input" value="05:00">
+              <button id="addTimeBtn" class="btn primary" type="button">➕ أضف</button>
+            </div>
+            <ul id="timeList" class="pill-list"></ul>
+          </div>
+
+          <div class="field">
+            <div class="row-between">
+              <span class="label">🔁 تذكير متكرر</span>
+              <label class="toggle"><input type="checkbox" id="intOn"><span class="slider"></span></label>
+            </div>
+            <div id="intBody" class="sub">
+              <select id="intMin" class="select"></select>
+              <div class="row window-row">
+                <label>من <input type="time" id="winStart" class="input"></label>
+                <label>إلى <input type="time" id="winEnd" class="input"></label>
+              </div>
+              <p class="hint">خارج هذه الساعات لا يصلك تذكير متكرر (ساعات الهدوء 🌙)</p>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="row-between">
+              <span class="label">🕌 بعد الصلوات</span>
+              <label class="toggle"><input type="checkbox" id="prOn"><span class="slider"></span></label>
+            </div>
+            <div id="prBody" class="sub">
+              <div class="row">
+                <select id="prCity" class="select" aria-label="المدينة"></select>
+                <select id="prOffset" class="select" aria-label="بعد الأذان بـ">
+                  <option value="10">بعد الأذان بـ ١٠ د</option>
+                  <option value="15">بعد الأذان بـ ١٥ د</option>
+                  <option value="20">بعد الأذان بـ ٢٠ د</option>
+                  <option value="30">بعد الأذان بـ ٣٠ د</option>
+                </select>
+              </div>
+              <div id="prWhich" class="chips"></div>
+              <p id="prToday" class="hint"></p>
+            </div>
+          </div>
+
+          <div class="row-between line">
+            <span>إيقاف التذكير بعد تحقيق هدف اليوم</span>
+            <label class="toggle"><input type="checkbox" id="stopGoal"><span class="slider"></span></label>
+          </div>
+          <div class="row-between line">
+            <span>ملخص أسبوعي كل جمعة</span>
+            <label class="toggle"><input type="checkbox" id="weeklyOn"><span class="slider"></span></label>
+          </div>
+          <button id="testNotifBtn" class="btn block" type="button">🔊 جرّب التذكير الآن</button>
+          <p id="schedInfo" class="hint center"></p>
+        </div>
+      </div>
+
+      <div class="card" id="shareCard">
+        <h3>🤝 شارك الأجر</h3>
+        <p class="muted">«الدال على الخير كفاعله». شارك التطبيق، وشوف كم استغفر اللي دعوتهم — بدون أسمائهم.</p>
+        <div id="refStats" class="ref-stats" hidden>
+          <div><b id="refPeople">٠</b><span>شخص</span></div>
+          <div><b id="refTotal">٠</b><span>استغفار</span></div>
+        </div>
+        <button id="shareAppBtn" class="btn primary block" type="button">📤 شارك التطبيق</button>
+        <div id="myCodeRow" class="code-row" hidden>كود دعوتك: <b id="myCode"></b></div>
+        <details id="enterCodeBox" class="details" hidden>
+          <summary>عندك كود دعوة؟</summary>
+          <div class="row">
+            <input id="codeInput" class="input code" maxlength="12" placeholder="مثال: K7QH2M" autocapitalize="characters">
+            <button id="codeBtn" class="btn" type="button">تأكيد</button>
+          </div>
+        </details>
+        <div id="shareAnonRow" class="row-between line" hidden>
+          <span>أرسل عددي (بدون اسمي) لمن دعاني</span>
+          <label class="toggle"><input type="checkbox" id="shareAnon"><span class="slider"></span></label>
+        </div>
+      </div>
+
+      <div class="card" id="accountCard" hidden>
+        <h3>👤 الحساب</h3>
+        <div id="guestBox">
+          <p class="muted">تستخدم التطبيق كضيف، وبياناتك محفوظة على جوالك. سجّل دخولك إذا تبي نسخة احتياطية تنقلها لأي جوال.</p>
+          <button id="googleBtn" class="btn social google block" type="button" hidden><b>G</b> الدخول بحساب Google</button>
+          <button id="facebookBtn" class="btn social facebook block" type="button" hidden><b>f</b> الدخول بحساب Facebook</button>
+        </div>
+        <div id="userBox" hidden>
+          <div class="user-line"><span id="userName"></span><span id="userProvider" class="muted"></span></div>
+          <p id="lastSync" class="hint"></p>
+          <div class="row">
+            <button id="syncBtn" class="btn" type="button">🔄 مزامنة الآن</button>
+            <button id="signOutBtn" class="btn" type="button">تسجيل الخروج</button>
+          </div>
+          <button id="deleteAccBtn" class="btn danger-text block" type="button">حذف الحساب وبياناته السحابية</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>📿 المسبحة</h3>
+        <div class="field">
+          <span class="label">اهتزاز مميز كل</span>
+          <div class="segmented" id="cycleMode">
+            <button data-v="33" type="button">٣٣</button>
+            <button data-v="100" type="button">١٠٠</button>
+            <button data-v="0" type="button">بدون</button>
+          </div>
+        </div>
+        <div class="field">
+          <span class="label">المظهر</span>
+          <div class="segmented" id="themeMode">
+            <button data-v="auto" type="button">تلقائي</button>
+            <button data-v="light" type="button">☀️ فاتح</button>
+            <button data-v="dark" type="button">🌙 داكن</button>
+          </div>
+        </div>
+        <button id="widgetBtn" class="btn primary block" type="button" hidden>📌 أضف المسبحة للشاشة الرئيسية</button>
+        <div class="row">
+          <button id="resetTodayBtn" class="btn danger" type="button">تصفير عداد اليوم</button>
+          <button id="resetAllBtn" class="btn danger-text" type="button">حذف كل البيانات</button>
+        </div>
+      </div>
+
+      <p class="about">مسبحة الاستغفار <span id="appVersion"></span><span id="aboutSep"> · </span><a id="privacyLink" href="#">سياسة الخصوصية</a></p>
+    </section>
+  </main>
+
+  <nav class="tabbar" aria-label="التنقل">
+    <button data-tab="home" class="on" type="button"><i>📿</i><span>المسبحة</span></button>
+    <button data-tab="stats" type="button"><i>📊</i><span>الإحصائيات</span></button>
+    <button data-tab="virtue" type="button"><i>📖</i><span>الفضل</span></button>
+    <button data-tab="settings" type="button"><i>⚙️</i><span>الإعدادات</span></button>
+  </nav>
+
+  <!-- وضع اللمس الكامل -->
+  <div id="fullscreen" class="fullscreen" hidden>
+    <button id="fsClose" class="fs-close" type="button" aria-label="إغلاق">✕</button>
+    <div class="fs-inner">
+      <div id="fsText" class="fs-text"></div>
+      <div id="fsCount" class="fs-count">٠</div>
+      <div id="fsSub" class="fs-sub"></div>
+      <div class="fs-hint">اضغط في أي مكان</div>
+    </div>
+  </div>
+
+  <!-- نوافذ -->
+  <div id="sheet" class="sheet-overlay" hidden>
+    <div class="sheet" role="dialog" aria-modal="true">
+      <div class="sheet-handle"></div>
+      <h3 id="sheetTitle"></h3>
+      <div id="sheetBody"></div>
+    </div>
+  </div>
+
+  <div id="modal" class="modal-overlay" hidden>
+    <div class="modal-box" role="alertdialog" aria-modal="true">
+      <div id="modalTitle" class="modal-title"></div>
+      <div id="modalMsg" class="modal-msg"></div>
+      <div class="modal-actions">
+        <button id="modalCancel" type="button" class="btn">إلغاء</button>
+        <button id="modalOk" type="button" class="btn primary">تأكيد</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="celebrate" class="celebrate" hidden></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="js/config.js"></script>
+  <script src="js/vendor/adhan.min.js"></script>
+  <script src="js/content.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/planner.js"></script>
+  <script src="js/notify.js"></script>
+  <script src="js/cloud.js"></script>
+  <script src="js/widget.js"></script>
+  <script src="js/share.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

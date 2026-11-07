@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>دعوة — مسبحة الاستغفار</title>
+  <meta name="description" content="مسبحة الاستغفار: عدّاد وتذكير يومي بصوت «أستغفر الله»">
+  <meta property="og:title" content="استغفر معي 🌿 مسبحة الاستغفار">
+  <meta property="og:description" content="عدّاد استغفار وتذكير يومي بصوت «أستغفر الله»، وأهداف وإحصائيات.">
+  <style>
+    :root { --bg: #e9f3e6; --card: #fff; --text: #23331f; --muted: #64775f; --accent: #2d5a27; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #0f1a0e; --card: #1a2a18; --text: #e5efe2; --muted: #9db297; --accent: #79b86c; } }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, 'Segoe UI', Tahoma, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+    .card { background: var(--card); border-radius: 28px; padding: 32px 24px; max-width: 380px; width: 100%; text-align: center; box-shadow: 0 16px 40px rgba(0,0,0,0.08); }
+    .logo { font-size: 3.4rem; }
+    h1 { color: var(--accent); font-size: 1.6rem; margin: 8px 0; }
+    p { color: var(--muted); line-height: 1.8; }
+    .btn { display: block; margin-top: 22px; background: var(--accent); color: #fff; text-decoration: none; padding: 14px; border-radius: 16px; font-weight: 700; }
+    .code { margin-top: 18px; font-size: 0.9rem; color: var(--muted); }
+    .code b { display: inline-block; letter-spacing: 3px; direction: ltr; color: var(--accent); font-size: 1.3rem; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="logo">📿</div>
+    <h1>مسبحة الاستغفار</h1>
+    <p>صديقك يدعوك تستغفر معه 🤍<br>عدّاد وتذكير يومي بصوت «أستغفر الله»، وأهداف وإحصائيات.</p>
+    <a id="go" class="btn" href="#">حمّل التطبيق من Google Play</a>
+    <div id="codeBox" class="code" hidden>إذا طلب التطبيق كود دعوة:<br><b id="code"></b></div>
+  </main>
+  <script>
+    const PACKAGE = 'com.yellowline.tasbih';
+    const m = /[?&]r=([A-Za-z0-9]{4,12})/.exec(location.search);
+    const code = m ? m[1].toUpperCase() : '';
+    const ref = code ? '&referrer=' + encodeURIComponent('r=' + code) : '';
+    const url = 'https://play.google.com/store/apps/details?id=' + PACKAGE + ref;
+    document.getElementById('go').href = url;
+    if (code) {
+      document.getElementById('code').textContent = code;
+      document.getElementById('codeBox').hidden = false;
+    }
+    // على أندرويد نفتح المتجر مباشرة
+    if (/Android/i.test(navigator.userAgent)) setTimeout(() => { location.href = url; }, 600);
+  </script>
+</body>
+</html>

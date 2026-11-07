@@ -1,0 +1,81 @@
+apply plugin: 'com.android.application'
+
+android {
+    namespace = "com.yellowline.tasbih"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "com.yellowline.tasbih"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        // رقم الإصدار يزيد تلقائياً مع كل بناء على GitHub
+        versionCode((System.getenv("VERSION_CODE") ?: "1").toInteger())
+        versionName(System.getenv("VERSION_NAME") ?: "1.0.0")
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    // التوقيع: يُقرأ من متغيرات البيئة (أسرار GitHub) — لا تضع كلمات المرور في الكود
+    def keystoreFile = System.getenv("KEYSTORE_FILE")
+    signingConfigs {
+        // مفتاح ثابت لنسخ التجربة فقط (ليس سراً) — يسمح بتثبيت نسخة جديدة فوق القديمة
+        testing {
+            storeFile file("test-signing.p12")
+            storePassword "testkey123"
+            keyAlias "test"
+            keyPassword "testkey123"
+        }
+        release {
+            if (keystoreFile && file(keystoreFile).exists()) {
+                storeFile file(keystoreFile)
+                storePassword System.getenv("KEYSTORE_PASSWORD")
+                keyAlias System.getenv("KEY_ALIAS")
+                keyPassword System.getenv("KEY_PASSWORD")
+            }
+        }
+    }
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.testing
+        }
+        release {
+            if (keystoreFile && file(keystoreFile).exists()) {
+                signingConfig signingConfigs.release
+            }
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation "com.android.installreferrer:installreferrer:2.2"
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}

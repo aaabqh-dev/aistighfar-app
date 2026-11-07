@@ -1,0 +1,7 @@
+{
+  "_شرح": "إعدادات اختيارية. التطبيق يعمل بدونها كضيف. لتفعيل الدخول بقوقل والمشاركة ضع ملف google-services.json في android/app. لتفعيل فيسبوك أضف القيمتين بالأسفل. التفاصيل في README.",
+  "facebookAppId": "",
+  "facebookClientToken": "",
+  "pagesBase": "",
+  "playPackage": "com.yellowline.tasbih"
+}
