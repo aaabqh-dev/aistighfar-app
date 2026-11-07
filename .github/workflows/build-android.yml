@@ -1,0 +1,121 @@
+# يبني تطبيق Android تلقائياً على خوادم GitHub (مجاناً) مع كل تحديث للكود.
+# النتيجة:
+#   - ملف APK للتثبيت المباشر على الجوال (في صفحة Releases)
+#   - ملف AAB جاهز للرفع على Google Play (إذا أضفت مفتاح التوقيع في الأسرار)
+
+name: Build Android App
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      VERSION_CODE: ${{ github.run_number }}
+      VERSION_NAME: 1.0.${{ github.run_number }}
+      HAS_KEYSTORE: ${{ secrets.KEYSTORE_BASE64 != '' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # أول تشغيل فقط: المشروع مرفوع كملف مضغوط من المتصفح، نفكّه ونحفظه في المستودع
+      - name: Unpack uploaded project (first run only)
+        run: |
+          if [ -f tasbih-app.zip ]; then
+            unzip -o -q tasbih-app.zip -x '.github/*'
+            git rm -q tasbih-app.zip
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -A
+            git commit -q -m "Unpack project files"
+            git push
+          fi
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run logic tests
+        run: TZ=Asia/Riyadh node tests/logic.test.js
+
+      - name: Configure (Firebase / Facebook if provided)
+        run: node scripts/configure.js
+
+      - name: Generate «أستغفر الله» notification sound
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          pip install --quiet edge-tts
+          bash scripts/make-sound.sh
+
+      - name: Sync web code into Android project
+        run: npx cap sync android
+
+      - name: Build test APK (install directly on phone)
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk ../tasbih-${VERSION_NAME}-test.apk
+
+      - name: Build signed release (for Google Play)
+        if: env.HAS_KEYSTORE == 'true'
+        working-directory: android
+        env:
+          KEYSTORE_FILE: ${{ github.workspace }}/release.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "$KEYSTORE_FILE"
+          ./gradlew bundleRelease assembleRelease --no-daemon
+          cp app/build/outputs/bundle/release/app-release.aab ../tasbih-${VERSION_NAME}-googleplay.aab
+          cp app/build/outputs/apk/release/app-release.apk ../tasbih-${VERSION_NAME}.apk
+          rm -f "$KEYSTORE_FILE"
+
+      - name: Keep the generated sound
+        run: cp android/app/src/main/res/raw/astaghfar.wav notification-sound.wav
+
+      - name: Upload build files
+        uses: actions/upload-artifact@v4
+        with:
+          name: tasbih-${{ env.VERSION_NAME }}
+          path: |
+            tasbih-*.apk
+            tasbih-*.aab
+            notification-sound.wav
+
+      - name: Publish download page (Releases)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VERSION_NAME }}
+          name: مسبحة الاستغفار ${{ env.VERSION_NAME }}
+          body: |
+            📱 للتثبيت على الجوال: حمّل ملف `.apk` من الأسفل وافتحه.
+            🏪 للرفع على Google Play: استخدم ملف `.aab`.
+          files: |
+            tasbih-*.apk
+            tasbih-*.aab
+            notification-sound.wav
