@@ -10,7 +10,7 @@
     const sp = SharePl();
     if (sp) { await sp.share(opts); return true; }
     if (navigator.share) { await navigator.share({ title: opts.title, text: opts.text, url: opts.url }); return true; }
-    try { await navigator.clipboard.writeText([opts.text, opts.url].filter(Boolean).join('\n')); App.ui.toast('تم نسخ الرابط 📋'); } catch (e) {}
+    try { await navigator.clipboard.writeText([opts.text, opts.url].filter(Boolean).join('\n')); App.ui.toast(App.t('copied')); } catch (e) {}
     return false;
   }
 
@@ -19,9 +19,8 @@
     if (App.cloud.enabled()) {
       try { code = await App.cloud.myCode(); link = App.cloud.shareLink(code); } catch (e) {}
     }
-    const text = 'حمّل تطبيق «مسبحة الاستغفار» 🌿 عدّاد وتذكير يومي بصوت «أستغفر الله»، واستغفر معي.' +
-      (code ? '\nكود الدعوة: ' + code : '');
-    return nativeShare({ title: 'مسبحة الاستغفار', text, url: link || undefined, dialogTitle: 'شارك التطبيق' });
+    const text = App.t('share_app_text') + (code ? '\n' + App.t('share_code_line', { code }) : '');
+    return nativeShare({ title: App.t('app_name'), text, url: link || undefined, dialogTitle: App.t('share_dialog_app') });
   };
 
   // ---------- صورة الإنجاز ----------
@@ -36,9 +35,9 @@
     g.beginPath(); g.arc(150, 120, 330, 0, Math.PI * 2); g.fill();
     g.beginPath(); g.arc(980, 1000, 260, 0, Math.PI * 2); g.fill();
 
-    g.direction = 'rtl'; g.textAlign = 'center'; g.fillStyle = '#fff';
-    const font = (w, px) => `${w} ${px}px "Noto Naskh Arabic", "Amiri", system-ui, sans-serif`;
-    g.font = font(700, 54); g.fillText('🌿 مسبحة الاستغفار', 540, 150);
+    g.direction = App.lang.dir; g.textAlign = 'center'; g.fillStyle = '#fff';
+    const font = (w, px) => `${w} ${px}px "Noto Naskh Arabic", "Noto Sans Bengali", "Noto Nastaliq Urdu", "Amiri", system-ui, sans-serif`;
+    g.font = font(700, 54); g.fillText('🌿 ' + App.t('app_name'), 540, 150);
     g.font = font(400, 40); g.globalAlpha = 0.85; g.fillText(data.label, 540, 330); g.globalAlpha = 1;
     g.font = font(800, 190); g.fillText(data.value, 540, 540);
     g.font = font(600, 46); g.fillText(data.unit, 540, 620);
@@ -67,32 +66,32 @@
     const s = App.state;
     const todayKey = App.date.dayKey(new Date());
     const sum = App.summary(s, todayKey, 'istighfar');
-    const n = (x) => x.toLocaleString('ar-EG');
+    const n = (x) => App.fmt.num(x);
     let code = null;
     if (App.cloud.enabled()) { try { code = await App.cloud.myCode(); } catch (e) {} }
     const canvas = S.drawCard({
-      label: 'مجموع استغفاري',
+      label: App.t('card_label'),
       value: n(sum.total),
-      unit: 'أستغفر الله',
+      unit: App.t('card_unit'),
       chips: [
-        sum.currentStreak >= 2 ? `🔥 ${n(sum.currentStreak)} يوم متتالي` : null,
-        sum.today > 0 ? `اليوم: ${n(sum.today)}` : null
+        sum.currentStreak >= 2 ? App.t('card_streak', { n: n(sum.currentStreak) }) : null,
+        sum.today > 0 ? App.t('card_today', { n: n(sum.today) }) : null
       ],
-      footer: code ? `حمّل التطبيق — كود الدعوة: ${code}` : 'حمّل التطبيق واستغفر معي 🤍'
+      footer: code ? App.t('card_footer_code', { code }) : App.t('card_footer')
     });
     const dataUrl = canvas.toDataURL('image/png');
     const link = code ? App.cloud.shareLink(code) : (cfg.playUrl || undefined);
-    const text = `استغفرت ${n(sum.total)} مرة مع تطبيق «مسبحة الاستغفار» 🌿 شاركني الأجر` + (code ? `\nكود الدعوة: ${code}` : '');
+    const text = App.t('share_progress_text', { n: n(sum.total) }) + (code ? '\n' + App.t('share_code_line', { code }) : '');
     const fs = Fs();
     if (fs && SharePl()) {
       try {
         const res = await fs.writeFile({ path: 'tasbih-share.png', data: dataUrl.split(',')[1], directory: 'CACHE' });
-        await SharePl().share({ title: 'مسبحة الاستغفار', text, url: link, files: [res.uri], dialogTitle: 'شارك إنجازك' });
+        await SharePl().share({ title: App.t('app_name'), text, url: link, files: [res.uri], dialogTitle: App.t('share_dialog_progress') });
         return true;
       } catch (e) {
         if (/cancel/i.test(String(e && e.message))) return false;
       }
     }
-    return nativeShare({ title: 'مسبحة الاستغفار', text, url: link });
+    return nativeShare({ title: App.t('app_name'), text, url: link });
   };
 })(window.App = window.App || {});

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ইস্তিগফার তাসবিহ</string>
+    <string name="title_activity_main">ইস্তিগফার তাসবিহ</string>
+    <string name="widget_name">ইস্তিগফার তাসবিহ</string>
+    <string name="widget_description">হোম স্ক্রিন থেকেই ট্যাপ করে ইস্তিগফার করুন</string>
+</resources>

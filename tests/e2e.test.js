@@ -85,7 +85,7 @@ const MOCK = () => {
 
 (async () => {
   const b = await chromium.launch();
-  const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, timezoneId: 'Asia/Riyadh' });
+  const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, timezoneId: 'Asia/Riyadh', locale: 'ar-SA' });
   await ctx.route('**/js/config.js', (r) => r.fulfill({ contentType: 'application/javascript',
     body: `window.APP_CONFIG={firebase:true,providers:['google','facebook'],shareBase:'https://yl.github.io/tasbih-app/i/',playUrl:'https://play.google.com/store/apps/details?id=com.yellowline.tasbih',privacyUrl:'https://yl.github.io/tasbih-app/privacy.html',version:'1.0.9'};` }));
   const p = await ctx.newPage();
@@ -154,6 +154,11 @@ const MOCK = () => {
   await p.waitForTimeout(2000);
   if (await p.isVisible('#modal')) await p.click('#modalCancel');
   ok('«جرّب التذكير الآن» يرسل إشعاراً فورياً');
+  await p.waitForTimeout(800);
+  const info = await p.textContent('#schedInfo');
+  assert.match(info, /التذكير القادم: (اليوم|بكرة)/);
+  assert.match(info, /حققت هدفك اليوم/);
+  ok('سطر «التذكير القادم» يظهر، ويوضح إيقاف تذكيرات اليوم بعد الهدف: ' + info.split('\n')[1]);
   await p.evaluate(() => App.notify.reschedule({ force: true }));
   await p.waitForTimeout(300);
   let log = await p.evaluate(() => window.__log);

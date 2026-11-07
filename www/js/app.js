@@ -3,15 +3,17 @@
   'use strict';
 
   const $ = (id) => document.getElementById(id);
-  const n = (x) => Number(x || 0).toLocaleString('ar-EG');
+  const n = (x) => App.fmt.num(x);
+  const t = (k, v) => App.t(k, v);
+  // نص مترجم فيه {b}{/b}{br} → HTML
+  const th = (k, v) => App.t(k, v).replace(/\{b\}/g, '<b>').replace(/\{\/b\}/g, '</b>').replace(/\{br\}/g, '<br>');
+  const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const D = App.date;
   const todayKey = () => D.dayKey(new Date());
   const ui = (App.ui = {});
   const cfg = window.APP_CONFIG || {};
   let s;
 
-  const MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
-  const DAYS = ['أحد', 'إثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'];
 
   // =============== أدوات عامة ===============
   let toastTimer;
@@ -25,12 +27,12 @@
 
   ui.confirm = function (o) {
     return new Promise((resolve) => {
-      $('modalTitle').textContent = o.title || 'تأكيد';
+      $('modalTitle').textContent = o.title || t('confirm');
       $('modalMsg').textContent = o.msg || '';
       const ok = $('modalOk'), cancel = $('modalCancel'), box = $('modal');
-      ok.textContent = o.ok || 'تأكيد';
+      ok.textContent = o.ok || t('confirm');
       ok.className = 'btn ' + (o.danger ? 'danger' : 'primary');
-      cancel.textContent = o.cancel || 'إلغاء';
+      cancel.textContent = o.cancel || t('cancel');
       box.hidden = false;
       const done = (v) => { box.hidden = true; ok.onclick = cancel.onclick = box.onclick = null; resolve(v); };
       ok.onclick = () => done(true);
@@ -54,10 +56,11 @@
     c.innerHTML = '';
     const box = document.createElement('div');
     box.className = 'box';
-    box.innerHTML = `<div class="big"></div><h3></h3><p class="muted"></p><button class="btn primary block" type="button">الحمد لله</button>`;
+    box.innerHTML = `<div class="big"></div><h3></h3><p class="muted"></p><button class="btn primary block" type="button"></button>`;
     box.querySelector('.big').textContent = icon;
     box.querySelector('h3').textContent = title;
     box.querySelector('p').textContent = text || '';
+    box.querySelector('button').textContent = t('alhamdulillah');
     box.querySelector('button').onclick = () => { c.hidden = true; };
     c.appendChild(box);
     c.hidden = false;
@@ -75,6 +78,30 @@
     if (navigator.vibrate) {
       try { navigator.vibrate(kind === 'heavy' ? 60 : kind === 'success' ? [40, 60, 80] : 10); } catch (e) {}
     }
+  }
+
+  function applyI18nDom() {
+    document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
+    document.querySelectorAll('[data-i18n-aria]').forEach((el) => el.setAttribute('aria-label', t(el.dataset.i18nAria)));
+    document.querySelectorAll('[data-i18n-ph]').forEach((el) => el.setAttribute('placeholder', t(el.dataset.i18nPh)));
+    document.querySelectorAll('[data-num]').forEach((el) => { el.textContent = n(Number(el.dataset.num)); });
+    document.title = t('app_name');
+  }
+
+  // عند تغيير اللغة: نعيد بناء كل ما فيه نصوص
+  function changeLang(pref) {
+    s.lang = pref;
+    App.saveNow();
+    App.setLang(pref);
+    applyI18nDom();
+    ['statsDhikr', 'intMin', 'prCity', 'prOffset', 'langSelect'].forEach((id) => $(id).replaceChildren());
+    virtueDone = false;
+    renderHome();
+    renderSettings();
+    App.notify.ensureChannels();          // أسماء قنوات الإشعارات بلغة المستخدم
+    App.notify.reschedule({ force: true }) // نصوص التذكيرات باللغة الجديدة
+      .then(updateSchedInfo);
+    App.widget.push();
   }
 
   function applyTheme() {
@@ -98,14 +125,9 @@
     }
   }
 
-  function fmtTime(t) {
-    const [h, m] = t.split(':').map(Number);
-    return `${n(h % 12 === 0 ? 12 : h % 12)}:${String(m).padStart(2, '0').replace(/\d/g, (d) => '٠١٢٣٤٥٦٧٨٩'[d])} ${h < 12 ? 'ص' : 'م'}`;
-  }
-  function fmtDate(k) {
-    const d = D.parseKey(k);
-    return `${n(d.getDate())} ${MONTHS[d.getMonth()]}`;
-  }
+  const fmtTime = (v) => App.fmt.time(v);
+  const fmtDate = (k) => App.fmt.date(k);
+  const dayName = (k) => App.fmt.weekday(D.parseKey(k).getDay(), false);
 
   // =============== التبويبات ===============
   let currentTab = 'home';
@@ -146,12 +168,12 @@
 
   function progressText(st) {
     if (st.mode === 'goal') {
-      if (st.done) return `🎉 حققت هدفك اليوم — <b>${n(st.ist)}</b> استغفار`;
-      return `باقي <b>${n(s.goal - st.ist)}</b> على هدفك (${n(s.goal)})`;
+      if (st.done) return t('prog_done', { n: `<b>${n(st.ist)}</b>` });
+      return t('prog_left', { n: `<b>${n(s.goal - st.ist)}</b>`, goal: n(s.goal) });
     }
-    if (App.isIstighfar(s.current) && !s.goal) return 'اضبط <b>هدفك اليومي</b> من الإعدادات 🎯';
-    if (st.mode === 'cycle') return `الدورة ${n(st.inCycle || (st.count ? st.cycle : 0))} من ${n(st.cycle)}`;
-    return `اليوم: <b>${n(st.count)}</b>`;
+    if (App.isIstighfar(s.current) && !s.goal) return th('prog_set_goal');
+    if (st.mode === 'cycle') return t('prog_cycle', { n: n(st.inCycle || (st.count ? st.cycle : 0)), cycle: n(st.cycle) });
+    return t('prog_today', { n: `<b>${n(st.count)}</b>` });
   }
 
   function renderCounter(bump) {
@@ -173,7 +195,7 @@
     const sum = App.summary(s, todayKey(), 'istighfar');
     const chip = $('streakChip');
     chip.hidden = sum.currentStreak < 2;
-    chip.querySelector('span').textContent = n(sum.currentStreak) + ' يوم';
+    chip.querySelector('span').textContent = t('streak_days', { n: n(sum.currentStreak) });
   }
 
   function renderHome() {
@@ -181,6 +203,9 @@
     $('dhikrChipText').textContent = d.text;
     $('tapText').textContent = d.text;
     $('fsText').textContent = d.text;
+    const meaning = App.lang.code === 'ar' ? '' : t('dhikr_' + d.id);
+    $('tapMeaning').textContent = meaning;
+    $('fsMeaning').textContent = meaning;
     renderCounter(false);
     renderStreak();
     renderHomeCards();
@@ -188,13 +213,15 @@
   }
 
   function renderDailyText() {
-    const all = App.AYAT.map((a) => ({ ...a, q: true })).concat(App.AHADITH);
+    const all = App.AYAT.map((a) => ({ text: a.text, ref: a.ref, meaning: a.meaning, q: true }))
+      .concat(App.AHADITH.map((h) => ({ text: h.text, ref: h.ref, meaning: h.meaning })));
     const idx = Math.floor(D.parseKey(todayKey()).getTime() / 86400000) % all.length;
-    const t = all[idx];
+    const x = all[idx];
     const el = $('dailyText');
-    el.innerHTML = '<p class="quran"></p><p class="ref"></p>';
-    el.querySelector('.quran').textContent = t.q ? `﴿${t.text}﴾` : `«${t.text}»`;
-    el.querySelector('.ref').textContent = t.ref;
+    el.innerHTML = '<p class="quran"></p><p class="meaning-text"></p><p class="ref"></p>';
+    el.querySelector('.quran').textContent = x.q ? `﴿${x.text}﴾` : `«${x.text}»`;
+    el.querySelector('.meaning-text').textContent = App.lang.code === 'ar' ? '' : x.meaning;
+    el.querySelector('.ref').textContent = x.ref;
   }
 
   let tapsSinceCheck = 0;
@@ -208,7 +235,7 @@
     if (s.goal > 0 && before < s.goal && after >= s.goal) {
       haptic('success');
       App.saveNow();
-      celebrate('🎉', 'حققت هدفك اليوم!', `${n(s.goal)} استغفار — تقبّل الله منك`);
+      celebrate('🎉', t('goal_reached_title'), t('goal_reached_text', { n: n(s.goal) }));
       scheduleSoon(0);
       checkAchievements();
       renderStreak();
@@ -227,8 +254,8 @@
     if (fresh.length) {
       App.saveNow();
       const a = fresh[fresh.length - 1];
-      if ($('celebrate').hidden) celebrate(a.icon, 'وسام جديد: ' + a.title, a.desc);
-      else ui.toast(`${a.icon} وسام جديد: ${a.title}`);
+      if ($('celebrate').hidden) celebrate(a.icon, t('new_badge', { title: a.title }), a.desc);
+      else ui.toast(`${a.icon} ${t('new_badge', { title: a.title })}`);
     }
   }
 
@@ -241,7 +268,7 @@
   $('streakChip').addEventListener('click', () => showTab('stats'));
 
   $('dhikrChip').addEventListener('click', () => {
-    openSheet('اختر الذكر', (body) => {
+    openSheet(t('choose_dhikr'), (body) => {
       const list = document.createElement('div');
       list.className = 'sheet-list';
       const k = todayKey();
@@ -249,10 +276,11 @@
         const b = document.createElement('button');
         b.type = 'button';
         b.className = d.id === s.current ? 'on' : '';
-        b.innerHTML = '<span></span><small></small>';
-        b.querySelector('span').textContent = d.text;
+        b.innerHTML = '<span><span class="sheet-ar"></span><small class="sheet-meaning"></small></span><small></small>';
+        b.querySelector('.sheet-ar').textContent = d.text;
+        b.querySelector('.sheet-meaning').textContent = App.lang.code === 'ar' ? '' : t('dhikr_' + d.id);
         const c = App.dayCount(s, k, d.id);
-        b.querySelector('small').textContent = c ? `اليوم ${n(c)}` : '';
+        b.querySelector(':scope > small').textContent = c ? t('today_count', { n: n(c) }) : '';
         b.onclick = () => { s.current = d.id; App.saveNow(); closeSheet(); renderHome(); };
         list.appendChild(b);
       }
@@ -285,12 +313,12 @@
 
     // ١) أول تشغيل: اختيار الهدف
     if (!s.firstRunDone) {
-      const c = card('', `<p><b>🎯 اختر هدفك اليومي من الاستغفار</b><br><span class="muted">تقدر تغيّره في أي وقت</span></p><div class="chips"></div><div class="row"><button class="btn ghost small" type="button" data-later>لاحقاً</button></div>`);
+      const c = card('', `<p><b>${t('card_goal_title')}</b><br><span class="muted">${t('card_goal_sub')}</span></p><div class="chips"></div><div class="row"><button class="btn ghost small" type="button" data-later>${t('later')}</button></div>`);
       const chips = c.querySelector('.chips');
       for (const g of App.GOAL_PRESETS) {
         const b = document.createElement('button');
         b.type = 'button'; b.textContent = n(g);
-        b.onclick = () => { App.setGoal(s, g, k); s.firstRunDone = true; App.saveNow(); renderHome(); ui.toast(`هدفك اليومي: ${n(g)} 🌿`); scheduleSoon(0); };
+        b.onclick = () => { App.setGoal(s, g, k); s.firstRunDone = true; App.saveNow(); renderHome(); ui.toast(t('goal_set_toast', { n: n(g) })); scheduleSoon(0); };
         chips.appendChild(b);
       }
       c.querySelector('[data-later]').onclick = () => { s.firstRunDone = true; App.saveNow(); renderHome(); };
@@ -300,7 +328,7 @@
 
     // ٢) دعوة لتفعيل التذكير (مرة واحدة)
     if (!s.reminders.enabled && !s.remPromptDone && App.notify.available()) {
-      const c = card('', `<p><b>🔔 تبي نذكّرك بالاستغفار؟</b><br><span class="muted">تختار الأوقات، وكل كم دقيقة، وبصوت أو بدون</span></p><div class="row"><button class="btn primary small" type="button" data-yes>فعّل التذكير</button><button class="btn ghost small" type="button" data-no>لاحقاً</button></div>`);
+      const c = card('', `<p><b>${t('card_rem_title')}</b><br><span class="muted">${t('card_rem_sub')}</span></p><div class="row"><button class="btn primary small" type="button" data-yes>${t('card_rem_yes')}</button><button class="btn ghost small" type="button" data-no>${t('later')}</button></div>`);
       c.querySelector('[data-yes]').onclick = async () => { s.remPromptDone = true; App.saveNow(); showTab('settings'); await enableReminders(true); };
       c.querySelector('[data-no]').onclick = () => { s.remPromptDone = true; App.saveNow(); renderHomeCards(); };
       box.appendChild(c);
@@ -308,14 +336,14 @@
 
     // تنبيه: التذكيرات مفعّلة لكن أندرويد سيؤخرها
     if (s.reminders.enabled && App.notify.exactKnown === false) {
-      const c = card('gold', `<p><b>⚠️ تذكيراتك ممكن تتأخر</b><br><span class="muted">اسمح للتطبيق بـ «المنبهات والتذكيرات» عشان يوصلك التذكير في وقته</span></p><div class="row"><button class="btn primary small" type="button" data-exact>السماح</button></div>`);
+      const c = card('gold', `<p><b>${t('card_exact_title')}</b><br><span class="muted">${t('card_exact_sub')}</span></p><div class="row"><button class="btn primary small" type="button" data-exact>${t('allow')}</button></div>`);
       c.querySelector('[data-exact]').onclick = () => App.notify.openExactSettings();
       box.appendChild(c);
     }
 
     // ويدجت الشاشة الرئيسية (مرة واحدة)
     if (App.widget.available() && App.widget.installed === 0 && !s.widgetPromptDone) {
-      const c = card('', `<p><b>✨ جديد: المسبحة على شاشتك الرئيسية</b><br><span class="muted">استغفر بضغطة من الشاشة الرئيسية بدون ما تفتح التطبيق، ويتحدّث عدّادك وهدفك تلقائياً</span></p><div class="row"><button class="btn primary small" type="button" data-pin>📌 أضفها</button><button class="btn ghost small" type="button" data-no>لاحقاً</button></div>`);
+      const c = card('', `<p><b>${t('card_widget_title')}</b><br><span class="muted">${t('card_widget_sub')}</span></p><div class="row"><button class="btn primary small" type="button" data-pin>${t('card_widget_yes')}</button><button class="btn ghost small" type="button" data-no>${t('later')}</button></div>`);
       c.querySelector('[data-pin]').onclick = async () => { s.widgetPromptDone = true; App.saveNow(); await addWidget(); renderHomeCards(); };
       c.querySelector('[data-no]').onclick = () => { s.widgetPromptDone = true; App.saveNow(); renderHomeCards(); };
       box.appendChild(c);
@@ -325,12 +353,12 @@
     const sg = App.smartSuggestion(s, k);
     if (sg) {
       const html = sg.type === 'up'
-        ? `<p><b>ما شاء الله 🌟</b> حققت هدفك ${n(sg.metCount)} يوم من آخر ${n(sg.window)} يوم.<br>تبي ترفعه من <b>${n(sg.from)}</b> إلى <b>${n(sg.to)}</b>؟</p><div class="row"><button class="btn primary small" type="button" data-yes>ارفع الهدف 💪</button><button class="btn ghost small" type="button" data-no>لاحقاً</button></div>`
-        : `<p><b>القليل الدائم خير من الكثير المنقطع 🤍</b><br>تبي نخفف هدفك مؤقتاً من <b>${n(sg.from)}</b> إلى <b>${n(sg.to)}</b>؟</p><div class="row"><button class="btn primary small" type="button" data-yes>نعم، خففه</button><button class="btn ghost small" type="button" data-no>لا، أبقيه</button></div>`;
+        ? `<p>${th('smart_up', { met: n(sg.metCount), win: n(sg.window), from: n(sg.from), to: n(sg.to) })}</p><div class="row"><button class="btn primary small" type="button" data-yes>${t('smart_up_yes')}</button><button class="btn ghost small" type="button" data-no>${t('later')}</button></div>`
+        : `<p>${th('smart_down', { from: n(sg.from), to: n(sg.to) })}</p><div class="row"><button class="btn primary small" type="button" data-yes>${t('smart_down_yes')}</button><button class="btn ghost small" type="button" data-no>${t('smart_down_no')}</button></div>`;
       const c = card(sg.type === 'up' ? 'gold' : '', html);
       c.querySelector('[data-yes]').onclick = () => {
         App.setGoal(s, sg.to, k); s.smart.lastSuggestAt = k; App.saveNow(); renderHome(); scheduleSoon(0);
-        ui.toast(`هدفك الجديد: ${n(sg.to)} 🎯`);
+        ui.toast(t('new_goal_toast', { n: n(sg.to) }));
       };
       c.querySelector('[data-no]').onclick = () => { s.smart.lastSuggestAt = k; App.saveNow(); renderHomeCards(); };
       box.appendChild(c);
@@ -343,8 +371,8 @@
       const w = App.weekSummary(s, k);
       if (w.total > 0) {
         const diff = w.prevTotal ? Math.round(((w.total - w.prevTotal) / w.prevTotal) * 100) : null;
-        const trend = diff === null ? '' : diff >= 0 ? ` <span class="muted">(↑ ${n(diff)}٪ عن الأسبوع الماضي)</span>` : ` <span class="muted">(↓ ${n(-diff)}٪)</span>`;
-        const c = card('gold', `<p><b>📊 ملخص أسبوعك</b><br>${n(w.total)} استغفار${trend}${s.goal ? `<br>حققت هدفك ${n(w.goalDays)} من ٧ أيام` : ''}<br>أفضل يوم: ${DAYS[D.parseKey(w.best.key).getDay()]} (${n(w.best.count)})</p><div class="row"><button class="btn small" type="button" data-share>📤 شارك</button><button class="btn ghost small" type="button" data-ok>تم</button></div>`);
+        const trend = diff === null ? '' : ` <span class="muted">${t(diff >= 0 ? 'week_up' : 'week_down', { p: App.fmt.percent(Math.abs(diff)) })}</span>`;
+        const c = card('gold', `<p><b>${t('week_title')}</b><br>${t('week_total', { n: n(w.total) })}${trend}${s.goal ? `<br>${t('week_goal_days', { n: n(w.goalDays) })}` : ''}<br>${t('week_best', { day: dayName(w.best.key), n: n(w.best.count) })}</p><div class="row"><button class="btn small" type="button" data-share>${t('share')}</button><button class="btn ghost small" type="button" data-ok>${t('done')}</button></div>`);
         c.querySelector('[data-ok]').onclick = () => { s.weeklySeen = friday; App.saveNow(); renderHomeCards(); };
         c.querySelector('[data-share]').onclick = () => App.share.progress();
         box.appendChild(c);
@@ -355,9 +383,9 @@
   async function addWidget() {
     await App.widget.push();
     if (await App.widget.requestPin()) {
-      ui.toast('اضغط «إضافة» في النافذة اللي ظهرت 📌', 4000);
+      ui.toast(t('widget_pin_toast'), 4000);
     } else {
-      ui.toast('اضغط مطولاً على الشاشة الرئيسية ← «الأدوات/Widgets» ← «مسبحة الاستغفار»', 6000);
+      ui.toast(t('widget_manual_toast'), 6000);
     }
   }
 
@@ -368,10 +396,11 @@
     const sel = $('statsDhikr');
     if (sel.options.length) return;
     const add = (v, t) => { const o = document.createElement('option'); o.value = v; o.textContent = t; sel.appendChild(o); };
-    add('istighfar', 'الاستغفار');
-    add('all', 'كل الأذكار');
-    App.ADHKAR.filter((d) => !App.isIstighfar(d.id)).forEach((d) => add(d.id, d.text));
-    sel.addEventListener('change', () => { st.dhikr = sel.value; renderStats(); });
+    add('istighfar', t('stats_istighfar'));
+    add('all', t('stats_all'));
+    App.ADHKAR.filter((d) => !App.isIstighfar(d.id)).forEach((d) => add(d.id, App.lang.code === 'ar' ? d.text : `${d.text} — ${t('dhikr_' + d.id)}`));
+    sel.value = st.dhikr;
+    if (!sel.dataset.bound) { sel.dataset.bound = '1'; sel.addEventListener('change', () => { st.dhikr = sel.value; renderStats(); }); }
   }
 
   function renderStats() {
@@ -387,10 +416,10 @@
       const end = D.addDays(k, -7 * st.offset);
       const series = App.series(s, end, 7, st.dhikr);
       data = series.map((d) => ({
-        label: DAYS[D.parseKey(d.key).getDay()], count: d.count, today: d.key === k,
+        label: App.fmt.weekday(D.parseKey(d.key).getDay(), true), count: d.count, today: d.key === k,
         met: goal > 0 && d.count >= (d.goal || goal)
       }));
-      title = st.offset === 0 ? 'آخر ٧ أيام' : `${fmtDate(series[0].key)} – ${fmtDate(series[6].key)}`;
+      title = st.offset === 0 ? t('last_7_days') : `${fmtDate(series[0].key)} – ${fmtDate(series[6].key)}`;
       total = series.reduce((a, d) => a + d.count, 0);
       App.charts.bars(chart, data, { goal, values: true });
     } else if (st.range === 'month') {
@@ -398,31 +427,31 @@
       const m = new Date(base.getFullYear(), base.getMonth() - st.offset, 1);
       const series = App.monthSeries(s, m.getFullYear(), m.getMonth(), st.dhikr);
       data = series.map((d) => ({ label: n(d.day), count: d.count, today: d.key === k, met: goal > 0 && d.count >= goal }));
-      title = `${MONTHS[m.getMonth()]} ${n(m.getFullYear()).replace(/٬/g, '')}`;
+      title = App.fmt.monthYear(m.getFullYear(), m.getMonth());
       total = series.reduce((a, d) => a + d.count, 0);
       App.charts.bars(chart, data, { goal, labelEvery: 5 });
     } else {
       const y = D.parseKey(k).getFullYear() - st.offset;
       const months = App.yearSeries(s, y, st.dhikr);
-      data = months.map((c, i) => ({ label: MONTHS[i].slice(0, 3), count: c, today: st.offset === 0 && i === new Date().getMonth() }));
-      title = n(y).replace(/٬/g, '');
+      data = months.map((c, i) => ({ label: App.fmt.month(i, true), count: c, today: st.offset === 0 && i === new Date().getMonth() }));
+      title = App.fmt.plain(y);
       total = months.reduce((a, c) => a + c, 0);
       App.charts.bars(chart, data, {});
     }
     $('chartTitle').textContent = title;
-    $('chartSub').textContent = `المجموع: ${n(total)}`;
+    $('chartSub').textContent = t('chart_total', { n: n(total) });
 
     // البطاقات
     const sum = App.summary(s, k, st.dhikr);
     const tiles = [
-      [n(sum.today), 'اليوم'],
-      [n(sum.total), 'المجموع الكلي'],
-      [n(sum.average), 'متوسطك اليومي'],
-      [n(sum.bestDay), 'أفضل يوم' + (sum.bestDayKey ? ` (${fmtDate(sum.bestDayKey)})` : '')],
-      ['🔥 ' + n(sum.currentStreak), 'أيام متتالية الآن'],
-      [n(sum.longestStreak), 'أطول سلسلة']
+      [n(sum.today), t('tile_today')],
+      [n(sum.total), t('tile_total')],
+      [n(sum.average), t('tile_avg')],
+      [n(sum.bestDay), sum.bestDayKey ? t('tile_best_on', { date: fmtDate(sum.bestDayKey) }) : t('tile_best')],
+      ['🔥 ' + n(sum.currentStreak), t('tile_streak')],
+      [n(sum.longestStreak), t('tile_longest')]
     ];
-    if (st.dhikr === 'istighfar' && s.goal) tiles.push([n(sum.goalDays), 'يوم حققت فيه هدفك'], [n(sum.activeDays), 'يوم استغفرت فيه']);
+    if (st.dhikr === 'istighfar' && s.goal) tiles.push([n(sum.goalDays), t('tile_goal_days')], [n(sum.activeDays), t('tile_active_days')]);
     $('tiles').innerHTML = tiles.map(([b, l]) => `<div class="tile"><b>${b}</b><span>${l}</span></div>`).join('');
 
     App.charts.heatmap($('heatmap'), s, k, st.dhikr);
@@ -460,11 +489,14 @@
   function renderVirtue() {
     if (virtueDone) return;
     virtueDone = true;
-    $('benefits').innerHTML = App.BENEFITS.map((b) => `<div class="benefit"><i>${b.icon}</i><div>${b.title}<small>${b.ref}</small></div></div>`).join('');
+    const ar = App.lang.code === 'ar';
+    $('benefits').innerHTML = App.BENEFITS.map((b) => `<div class="benefit"><i>${b.icon}</i><div>${esc(b.title)}<small>${esc(b.ref)}</small></div></div>`).join('');
     $('sayyidText').textContent = App.SAYYID_ISTIGHFAR.text;
+    $('sayyidMeaning').textContent = ar ? '' : App.SAYYID_ISTIGHFAR.meaning;
     $('sayyidVirtue').textContent = '«' + App.SAYYID_ISTIGHFAR.virtue + '»';
+    $('sayyidVirtueMeaning').textContent = ar ? '' : App.SAYYID_ISTIGHFAR.virtueMeaning;
     $('sayyidRef').textContent = App.SAYYID_ISTIGHFAR.ref;
-    const render = (list, q) => list.map((t) => `<article><p class="quran">${q ? '﴿' + t.text + '﴾' : '«' + t.text + '»'}</p><p class="ref">${t.ref}</p></article>`).join('');
+    const render = (list, q) => list.map((x) => `<article><p class="quran">${q ? '﴿' + x.text + '﴾' : '«' + x.text + '»'}</p>${ar ? '' : `<p class="meaning-text">${esc(x.meaning)}</p>`}<p class="ref">${esc(x.ref)}</p></article>`).join('');
     $('ayatList').innerHTML = render(App.AYAT, true);
     $('hadithList').innerHTML = render(App.AHADITH, false);
   }
@@ -479,15 +511,26 @@
     }, ms === undefined ? 700 : ms);
   }
 
+  function whenText(d) {
+    const k = D.dayKey(d), tk = todayKey();
+    const hm = fmtTime(d);
+    if (k === tk) return t('when_today', { time: hm });
+    if (k === D.addDays(tk, 1)) return t('when_tomorrow', { time: hm });
+    return t('when_date', { date: fmtDate(k), time: hm });
+  }
+
   function updateSchedInfo(r) {
     const el = $('schedInfo');
     if (!el) return;
-    if (!App.notify.available()) { el.textContent = 'التذكيرات تعمل داخل التطبيق على الجوال'; return; }
+    if (!App.notify.available()) { el.textContent = t('rem_web_only'); return; }
     if (!s.reminders.enabled || !r) { el.textContent = ''; return; }
-    if (r.error) { el.textContent = 'تعذّرت الجدولة: ' + r.error; return; }
-    if (typeof r.count === 'number') {
-      el.textContent = r.count ? `✅ ${n(r.count)} تذكير مجدول${r.horizonEnd ? ' حتى ' + fmtDate(r.horizonEnd) : ''}، وتتجدد تلقائياً` : 'أضف وقتاً أو فعّل التذكير المتكرر';
-    }
+    if (r.error) { el.textContent = t('rem_error', { e: r.error }); return; }
+    if (!r.nextAt) { el.textContent = t('rem_add_source'); return; }
+    const lines = [];
+    if (r.goalMetToday) lines.push(t('rem_goal_met'));
+    lines.push(t('rem_next', { when: whenText(new Date(r.nextAt)) }));
+    if (r.exact === false) lines.push(t('rem_may_delay'));
+    el.textContent = lines.join('\n');
   }
 
   async function enableReminders(on) {
@@ -496,7 +539,7 @@
         const ok = await App.notify.requestPermission();
         if (!ok) {
           $('remEnabled').checked = false;
-          ui.toast('لم يتم السماح بالإشعارات — فعّلها من إعدادات الجوال');
+          ui.toast(t('notif_denied'));
           return;
         }
         await App.notify.ensureChannels();
@@ -504,7 +547,7 @@
       const r = s.reminders;
       if (!r.times.length && !r.interval.on && !r.prayers.on) {
         r.interval.on = true; r.interval.min = 60;
-        ui.toast('فعّلنا تذكيراً كل ساعة من ٨ص إلى ١٠م — عدّله كما تحب');
+        ui.toast(t('default_hourly'));
       }
     }
     s.reminders.enabled = on;
@@ -520,10 +563,10 @@
     if (!App.notify.available() || !s.reminders.enabled) return true;
     if (await App.notify.exactAllowed()) return true;
     const go = await ui.confirm({
-      title: 'خطوة مهمة لوصول التذكير ⏰',
-      msg: 'بدون هذا الإذن يؤخّر أندرويد التذكيرات لتوفير البطارية، وأحياناً ما توصل. اضغط «السماح»، ثم فعّل «السماح بضبط المنبهات والتذكيرات» وارجع للتطبيق.',
-      ok: 'السماح',
-      cancel: 'لاحقاً'
+      title: t('exact_title'),
+      msg: t('exact_msg'),
+      ok: t('allow'),
+      cancel: t('later')
     });
     if (go) App.notify.openExactSettings();
     return false;
@@ -533,12 +576,12 @@
     const ul = $('timeList');
     ul.replaceChildren();
     const times = [...s.reminders.times].sort();
-    if (!times.length) { ul.innerHTML = '<li class="empty">لا توجد أوقات</li>'; return; }
-    for (const t of times) {
+    if (!times.length) { ul.innerHTML = `<li class="empty">${t('no_times')}</li>`; return; }
+    for (const tm of times) {
       const li = document.createElement('li');
-      li.innerHTML = `<span>${fmtTime(t)}</span><button type="button" aria-label="حذف">×</button>`;
+      li.innerHTML = `<span>${fmtTime(tm)}</span><button type="button" aria-label="${t('delete')}">×</button>`;
       li.querySelector('button').onclick = () => {
-        s.reminders.times = s.reminders.times.filter((x) => x !== t);
+        s.reminders.times = s.reminders.times.filter((x) => x !== tm);
         App.saveNow(); renderTimes(); scheduleSoon();
       };
       ul.appendChild(li);
@@ -549,8 +592,7 @@
     const pr = s.reminders.prayers;
     const pt = App.prayerTimes(todayKey(), pr.city);
     if (!pt) { $('prToday').textContent = ''; return; }
-    const hm = (d) => fmtTime(String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'));
-    $('prToday').textContent = 'أوقات اليوم: ' + Object.keys(App.PRAYER_NAMES).map((p) => `${App.PRAYER_NAMES[p]} ${hm(pt[p])}`).join(' · ');
+    $('prToday').textContent = t('prayer_times_today', { list: Object.keys(App.PRAYER_NAMES).map((p) => `${App.PRAYER_NAMES[p]} ${fmtTime(pt[p])}`).join(' · ') });
   }
 
   let settingsBound = false;
@@ -562,7 +604,7 @@
     for (const g of [0].concat(App.GOAL_PRESETS)) {
       const b = document.createElement('button');
       b.type = 'button';
-      b.textContent = g ? n(g) : 'بدون';
+      b.textContent = g ? n(g) : t('none');
       b.className = s.goal === g ? 'on' : '';
       b.onclick = () => setGoal(g);
       gc.appendChild(b);
@@ -575,7 +617,7 @@
     $('remBody').style.pointerEvents = r.enabled ? '' : 'none';
     segmented('soundMode', r.sound, (v) => {
       r.sound = v; App.saveNow(); scheduleSoon();
-      ui.toast(v === 'voice' ? '🔊 بصوت «أستغفر الله»' : v === 'vibrate' ? '📳 اهتزاز بدون صوت' : '🔕 إشعار صامت');
+      ui.toast(t(v === 'voice' ? 'sound_voice_toast' : v === 'vibrate' ? 'sound_vibrate_toast' : 'sound_silent_toast'));
     });
     renderTimes();
     $('intOn').checked = r.interval.on;
@@ -588,7 +630,12 @@
     $('prOn').checked = r.prayers.on;
     $('prBody').hidden = !r.prayers.on;
     const pc = $('prCity');
-    if (!pc.options.length) App.CITIES.forEach((c) => { const o = document.createElement('option'); o.value = c.id; o.textContent = c.name; pc.appendChild(o); });
+    if (!pc.options.length) {
+      [...App.CITIES].sort((a, b) => App.cityName(a).localeCompare(App.cityName(b), App.lang.locale))
+        .forEach((c) => { const o = document.createElement('option'); o.value = c.id; o.textContent = App.cityName(c); pc.appendChild(o); });
+    }
+    const po = $('prOffset');
+    if (!po.options.length) [10, 15, 20, 30].forEach((m) => { const o = document.createElement('option'); o.value = m; o.textContent = t('after_adhan_min', { n: n(m) }); po.appendChild(o); });
     pc.value = r.prayers.city;
     $('prOffset').value = String(r.prayers.offset);
     const pw = $('prWhich');
@@ -605,6 +652,7 @@
     $('weeklyOn').checked = r.weekly;
     if (App.notify.available() && r.enabled) {
       App.notify.exactAllowed().then((ok) => { $('exactRow').hidden = ok; });
+      App.notify.reschedule().then(updateSchedInfo);
     } else $('exactRow').hidden = true;
 
     // المسبحة والمظهر
@@ -612,6 +660,14 @@
     segmented('themeMode', s.theme, (v) => { s.theme = v; App.saveNow(); applyTheme(); });
 
     $('widgetBtn').hidden = !App.widget.available();
+    const ls = $('langSelect');
+    if (!ls.options.length) {
+      const add = (v, label) => { const o = document.createElement('option'); o.value = v; o.textContent = label; ls.appendChild(o); };
+      add('auto', `${t('lang_auto')} (${App.LANGS.find((l) => l.code === App.detectLang()).name})`);
+      App.LANGS.forEach((l) => add(l.code, l.name));
+      ls.onchange = () => changeLang(ls.value);
+    }
+    ls.value = s.lang || 'auto';
     renderShare();
     renderAccount();
     $('appVersion').textContent = cfg.version && cfg.version !== 'dev' ? cfg.version : '';
@@ -627,7 +683,7 @@
     App.saveNow();
     renderSettings();
     scheduleSoon();
-    ui.toast(g ? `هدفك اليومي: ${n(g)} 🎯` : 'بدون هدف يومي');
+    ui.toast(g ? t('goal_daily_toast', { n: n(g) }) : t('goal_none_toast'));
   }
 
   function bindSettings() {
@@ -635,25 +691,28 @@
     const r = () => s.reminders;
     $('goalCustomBtn').onclick = () => {
       const v = parseInt($('goalCustom').value, 10);
-      if (!v || v < 1 || v > 100000) { ui.toast('اكتب رقماً بين ١ و ١٠٠٬٠٠٠'); return; }
+      if (!v || v < 1 || v > 100000) { ui.toast(t('goal_invalid')); return; }
       setGoal(v);
     };
     $('remEnabled').onchange = (e) => enableReminders(e.target.checked);
     $('exactBtn').onclick = () => App.notify.openExactSettings();
     $('batteryBtn').onclick = async () => {
-      if (await ui.confirm({ title: 'البطارية', msg: 'في بعض الجوالات (شاومي، هواوي، أوبو، سامسونج) افتح «البطارية» واختر «غير مقيّد» عشان ما يوقف الجوال التذكيرات.', ok: 'افتح إعدادات التطبيق' })) App.notify.openAppSettings();
+      if (await ui.confirm({ title: t('battery_title'), msg: t('battery_msg'), ok: t('open_app_settings') })) App.notify.openAppSettings();
     };
     $('addTimeBtn').onclick = () => {
       const v = $('timeInput').value;
       if (!/^\d{2}:\d{2}$/.test(v)) return;
-      if (r().times.includes(v)) { ui.toast('هذا الوقت مضاف'); return; }
+      if (r().times.includes(v)) { ui.toast(t('time_exists')); return; }
       r().times.push(v); App.saveNow(); renderTimes(); scheduleSoon();
-      ui.toast(`سيصلك تذكير يومياً ${fmtTime(v)}`);
+      const [hh, mm] = v.split(':').map(Number);
+      const now = new Date();
+      const today = hh * 60 + mm > now.getHours() * 60 + now.getMinutes();
+      ui.toast(t('time_added', { time: fmtTime(v), when: t(today ? 'today' : 'tomorrow') }), 4000);
     };
     $('intOn').onchange = (e) => { r().interval.on = e.target.checked; $('intBody').hidden = !e.target.checked; App.saveNow(); scheduleSoon(); };
     $('intMin').onchange = (e) => {
       r().interval.min = Number(e.target.value); App.saveNow(); scheduleSoon();
-      if (r().interval.min <= 10 && r().sound === 'voice') ui.toast('نصيحة: مع التذكير المتكرر جداً، جرّب «اهتزاز» 📳');
+      if (r().interval.min <= 10 && r().sound === 'voice') ui.toast(t('interval_tip'));
     };
     const win = () => { r().window.start = $('winStart').value || '08:00'; r().window.end = $('winEnd').value || '22:00'; App.saveNow(); scheduleSoon(); };
     $('winStart').onchange = win;
@@ -664,25 +723,25 @@
     $('stopGoal').onchange = (e) => { r().stopWhenGoalMet = e.target.checked; App.saveNow(); scheduleSoon(); };
     $('weeklyOn').onchange = (e) => { r().weekly = e.target.checked; App.saveNow(); scheduleSoon(); };
     $('testNotifBtn').onclick = async () => {
-      if (!App.notify.available()) { ui.toast('تجربة التذكير تعمل داخل التطبيق على الجوال'); return; }
+      if (!App.notify.available()) { ui.toast(t('rem_web_only')); return; }
       const r = await App.notify.test();
       if (r.ok) {
-        ui.toast('أرسلنا تذكيراً الآن 🔊 ما سمعت الصوت؟ تأكد إن الجوال مو على الصامت', 4500);
+        ui.toast(t('test_sent'), 4500);
         setTimeout(() => ensureExact(), 1800);
       } else if (r.reason === 'permission') {
-        if (await ui.confirm({ title: 'الإشعارات مقفلة', msg: 'الإشعارات مقفلة لهذا التطبيق من إعدادات الجوال. افتح الإعدادات وفعّل «السماح بالإشعارات».', ok: 'افتح الإعدادات' })) {
+        if (await ui.confirm({ title: t('notif_off_title'), msg: t('notif_off_msg'), ok: t('open_settings') })) {
           App.notify.openNotificationSettings();
         }
       } else {
-        ui.toast('تعذّر إرسال التذكير: ' + (r.error || ''), 5000);
+        ui.toast(t('test_failed', { e: r.error || '' }), 5000);
       }
     };
 
     $('shareAppBtn').onclick = async () => { await App.share.app(); renderShare(); };
     $('codeBtn').onclick = async () => {
       const res = await App.cloud.enterCode($('codeInput').value);
-      const msg = { invalid: 'الكود غير صحيح', own: 'هذا كود دعوتك أنت 😊', already: 'سبق أن أدخلت كود دعوة', notfound: 'ما لقينا هذا الكود', error: 'تعذّر الاتصال، حاول لاحقاً' };
-      ui.toast(res.ok ? 'تم ✅ جزاك الله وجزى من دعاك خيراً' : (msg[res.reason] || 'تعذّر'));
+      const msg = { invalid: 'code_invalid', own: 'code_own', already: 'code_already', notfound: 'code_notfound', error: 'code_error' };
+      ui.toast(res.ok ? t('code_ok') : t(msg[res.reason] || 'code_failed'));
       renderShare();
     };
     $('shareAnon').onchange = (e) => { s.shareAnon = e.target.checked; App.saveNow(); App.cloud.pushProgress(true); };
@@ -690,28 +749,28 @@
     $('googleBtn').onclick = () => signIn('google');
     $('facebookBtn').onclick = () => signIn('facebook');
     $('syncBtn').onclick = async () => {
-      try { await App.cloud.sync(); ui.toast('تمت المزامنة ✅'); renderAccount(); } catch (e) { ui.toast('تعذّرت المزامنة، تحقق من الإنترنت'); }
+      try { await App.cloud.sync(); ui.toast(t('synced')); renderAccount(); } catch (e) { ui.toast(t('sync_failed')); }
     };
     $('signOutBtn').onclick = async () => {
-      if (!(await ui.confirm({ title: 'تسجيل الخروج', msg: 'بياناتك تبقى على هذا الجوال، وتقدر ترجع تسجل دخولك في أي وقت.', ok: 'خروج' }))) return;
-      await App.cloud.signOut(); renderSettings(); ui.toast('تم تسجيل الخروج');
+      if (!(await ui.confirm({ title: t('signout_title'), msg: t('signout_msg'), ok: t('signout_ok') }))) return;
+      await App.cloud.signOut(); renderSettings(); ui.toast(t('signed_out'));
     };
     $('deleteAccBtn').onclick = async () => {
-      if (!(await ui.confirm({ title: 'حذف الحساب', msg: 'سيُحذف حسابك ونسختك الاحتياطية وكود دعوتك نهائياً. بيانات هذا الجوال تبقى.', ok: 'احذف نهائياً', danger: true }))) return;
-      try { await App.cloud.deleteAccount(); ui.toast('تم حذف الحساب'); } catch (e) { ui.toast('تعذّر الحذف، سجّل دخولك مجدداً ثم حاول'); }
+      if (!(await ui.confirm({ title: t('delete_acc_title'), msg: t('delete_acc_msg'), ok: t('delete_forever'), danger: true }))) return;
+      try { await App.cloud.deleteAccount(); ui.toast(t('acc_deleted')); } catch (e) { ui.toast(t('delete_failed')); }
       renderSettings();
     };
 
     $('widgetBtn').onclick = () => addWidget();
     $('resetTodayBtn').onclick = async () => {
       const d = dhikr();
-      if (!(await ui.confirm({ title: 'تصفير عداد اليوم', msg: `تصفير «${d.text}» لليوم؟ إحصائيات الأيام السابقة تبقى.`, ok: 'نعم، صفّر', danger: true }))) return;
+      if (!(await ui.confirm({ title: t('reset_today_title'), msg: t('reset_today_msg', { dhikr: d.text }), ok: t('reset_today_ok'), danger: true }))) return;
       const day = s.days[todayKey()];
       if (day) delete day[s.current];
-      App.saveNow(); renderHome(); scheduleSoon(); App.widget.push(); ui.toast('تم تصفير عداد اليوم');
+      App.saveNow(); renderHome(); scheduleSoon(); App.widget.push(); ui.toast(t('reset_today_done'));
     };
     $('resetAllBtn').onclick = async () => {
-      if (!(await ui.confirm({ title: 'حذف كل البيانات', msg: 'ستُحذف كل الإحصائيات والإعدادات من هذا الجوال نهائياً.', ok: 'احذف الكل', danger: true }))) return;
+      if (!(await ui.confirm({ title: t('reset_all_title'), msg: t('reset_all_msg'), ok: t('reset_all_ok'), danger: true }))) return;
       try { localStorage.removeItem('tasbih_v2'); localStorage.removeItem('tasbih_sched_sig'); ['astaghfar_counter', 'astaghfar_reminder_times', 'astaghfar_notifications_enabled'].forEach((k) => localStorage.removeItem(k)); } catch (e) {}
       s.reminders.enabled = false;
       await App.notify.reschedule({ force: true });
@@ -722,13 +781,13 @@
 
   async function signIn(provider) {
     try {
-      ui.toast('جارٍ تسجيل الدخول…');
+      ui.toast(t('signing_in'));
       await App.cloud.signIn(provider);
-      ui.toast('أهلاً بك 🌿 تم حفظ تقدمك');
+      ui.toast(t('welcome'));
       renderSettings(); renderHome();
     } catch (e) {
       const m = String(e && (e.message || e.code) || e);
-      ui.toast(/cancel/i.test(m) ? 'تم إلغاء تسجيل الدخول' : 'تعذّر تسجيل الدخول، حاول لاحقاً');
+      ui.toast(t(/cancel/i.test(m) ? 'signin_cancelled' : 'signin_failed'));
     }
   }
 
@@ -764,9 +823,9 @@
     $('facebookBtn').hidden = !provs.includes('facebook');
     if (!guest) {
       const acc = s.account;
-      $('userName').textContent = acc.name || 'حسابك';
-      $('userProvider').textContent = acc.provider === 'facebook.com' ? 'عبر Facebook' : acc.provider === 'google.com' ? 'عبر Google' : '';
-      $('lastSync').textContent = acc.lastSync ? 'آخر مزامنة: ' + new Date(acc.lastSync).toLocaleString('ar-EG', { dateStyle: 'medium', timeStyle: 'short' }) : '';
+      $('userName').textContent = acc.name || t('your_account');
+      $('userProvider').textContent = acc.provider === 'facebook.com' ? t('via_facebook') : acc.provider === 'google.com' ? t('via_google') : '';
+      $('lastSync').textContent = acc.lastSync ? t('last_sync', { t: App.fmt.dateTime(acc.lastSync) }) : '';
     }
   }
 
@@ -822,6 +881,8 @@
 
   async function init() {
     s = App.load();
+    App.setLang(s.lang || 'auto');
+    applyI18nDom();
     applyTheme();
     await App.widget.drain();
     await App.widget.refreshInfo();

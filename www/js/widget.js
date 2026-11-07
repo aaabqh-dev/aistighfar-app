@@ -59,6 +59,10 @@
         goal: s.goal || 0,
         cycle: Number(s.cycle) || 0,
         text: 'أستغفر الله',
+        locale: App.lang.locale,
+        labelLeft: App.t('widget_left'),
+        labelDone: App.t('widget_done'),
+        labelTap: App.t('widget_tap'),
         reminders: (s.reminders.enabled && s.reminders.stopWhenGoalMet) ? reminders().filter((r) => r.day === day) : []
       });
     } catch (e) {}

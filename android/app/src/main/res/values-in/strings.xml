@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Tasbih Istigfar</string>
+    <string name="title_activity_main">Tasbih Istigfar</string>
+    <string name="widget_name">Tasbih Istigfar</string>
+    <string name="widget_description">Ketuk untuk beristigfar langsung dari layar utama</string>
+</resources>

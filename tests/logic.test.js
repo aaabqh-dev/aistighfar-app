@@ -5,9 +5,10 @@ const ctx = { window: {}, console, Date, Math, JSON, Map, Set, Object, Array, Nu
   localStorage: { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); } } };
 ctx.window = ctx; ctx.globalThis = ctx;
 vm.createContext(ctx);
-for (const f of ['vendor/adhan.min.js', 'content.js', 'store.js', 'planner.js'])
+for (const f of ['i18n.js', 'lang/ar.js', 'lang/en.js', 'vendor/adhan.min.js', 'content.js', 'store.js', 'planner.js'])
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../www/js', f), 'utf8'), ctx, { filename: f });
 const App = ctx.App;
+App.setLang('ar');
 let passed = 0;
 const t = (name, fn) => { fn(); passed++; console.log('✓', name); };
 const D = App.date;
@@ -162,6 +163,18 @@ t('قناة الإشعار حسب اختيار الصوت', () => {
 t('بدون تفعيل لا شيء يُجدول', () => {
   const s = fresh(); s.reminders.times = ['15:00'];
   assert.equal(App.planReminders(s, new Date()).items.length, 0);
+});
+
+t('التذكيرات بلغة المستخدم (الإنجليزية) وتنسيق أرقامها', () => {
+  App.setLang('en');
+  const s = remindersState(); s.days['2026-11-07'] = { astaghfar: 900 }; s.reminders.times = ['15:00', '18:00'];
+  const p = App.planReminders(s, new Date(2026, 10, 7, 12, 0));
+  const at18 = p.items.find((i) => i.at.getHours() === 18);
+  assert.match(at18.body, /100/); assert.equal(at18.title, '🌿 Istighfar Tasbih');
+  assert.match(App.fmt.time('17:05'), /5:05\s?PM/);
+  assert.equal(App.t('prog_left', { n: 5, goal: 10 }), '5 left to reach your goal (10)');
+  App.setLang('fa'); assert.equal(App.fmt.num(1234), '۱٬۲۳۴');
+  App.setLang('ar');
 });
 
 console.log(`\n${passed} اختبار ناجح`);

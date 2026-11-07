@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">تسبیح استغفار</string>
+    <string name="title_activity_main">تسبیح استغفار</string>
+    <string name="widget_name">تسبیح استغفار</string>
+    <string name="widget_description">ہوم اسکرین سے ہی ٹیپ کر کے استغفار کریں</string>
+</resources>

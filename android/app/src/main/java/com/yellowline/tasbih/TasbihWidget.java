@@ -101,8 +101,9 @@ public class TasbihWidget extends AppWidgetProvider {
         return manager.getAppWidgetIds(new ComponentName(context, TasbihWidget.class)).length;
     }
 
-    private static String num(int n) {
-        return NumberFormat.getIntegerInstance(new Locale("ar", "EG")).format(n);
+    private static String num(Context context, int n) {
+        Locale loc = Locale.forLanguageTag(WidgetStore.label(context, "locale", "ar-EG"));
+        return NumberFormat.getIntegerInstance(loc).format(n);
     }
 
     static RemoteViews build(Context context) {
@@ -111,18 +112,20 @@ public class TasbihWidget extends AppWidgetProvider {
         int goal = WidgetStore.goal(context);
 
         v.setTextViewText(R.id.widget_title, WidgetStore.text(context));
-        v.setTextViewText(R.id.widget_count, num(count));
+        v.setTextViewText(R.id.widget_count, num(context, count));
 
         if (goal > 0) {
             v.setViewVisibility(R.id.widget_progress, View.VISIBLE);
             v.setProgressBar(R.id.widget_progress, goal, Math.min(count, goal), false);
-            v.setTextViewText(
-                R.id.widget_sub,
-                count >= goal ? "🎉 حققت هدفك اليوم" : "باقي " + num(goal - count) + " من " + num(goal)
-            );
+            String sub = count >= goal
+                ? WidgetStore.label(context, "label_done", "🎉 حققت هدفك اليوم")
+                : WidgetStore.label(context, "label_left", "باقي {n} من {goal}")
+                    .replace("{n}", num(context, goal - count))
+                    .replace("{goal}", num(context, goal));
+            v.setTextViewText(R.id.widget_sub, sub);
         } else {
             v.setViewVisibility(R.id.widget_progress, View.GONE);
-            v.setTextViewText(R.id.widget_sub, "اضغط للاستغفار");
+            v.setTextViewText(R.id.widget_sub, WidgetStore.label(context, "label_tap", "اضغط للاستغفار"));
         }
 
         int immutable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0;

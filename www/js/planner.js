@@ -31,7 +31,7 @@
   function pick(list, seed) { return list[Math.abs(seed) % list.length]; }
 
   App.fmtNum = function (n) {
-    return typeof n === 'number' ? n.toLocaleString('ar-EG') : n;
+    return typeof n === 'number' ? (App.fmt ? App.fmt.num(n) : n.toLocaleString('ar-EG')) : n;
   };
 
   // ---------- أوقات الصلاة (مكتبة adhan، بدون إنترنت) ----------
@@ -44,9 +44,11 @@
     const city = App.CITIES.find((c) => c.id === cityId);
     if (!A || !city) return null;
     const saudi = ['makkah', 'madinah', 'riyadh', 'jeddah', 'dammam', 'khobar', 'taif', 'tabuk', 'buraydah', 'abha', 'khamis', 'hail', 'jazan', 'najran', 'hofuf', 'jubail', 'yanbu', 'arar', 'sakaka', 'baha'];
-    const methodName = saudi.includes(cityId) ? 'UmmAlQura' : (METHOD_BY_CITY[cityId] || 'MuslimWorldLeague');
+    const methodName = city.method || (saudi.includes(cityId) ? 'UmmAlQura' : (METHOD_BY_CITY[cityId] || 'MuslimWorldLeague'));
     const fn = A.CalculationMethod[methodName] || A.CalculationMethod.MuslimWorldLeague;
-    const pt = new A.PrayerTimes(new A.Coordinates(city.lat, city.lng), App.date.parseKey(dayKey), fn());
+    const params = fn();
+    if (city.madhab === 'Hanafi' && A.Madhab) params.madhab = A.Madhab.Hanafi;
+    const pt = new A.PrayerTimes(new A.Coordinates(city.lat, city.lng), App.date.parseKey(dayKey), params);
     return { fajr: pt.fajr, dhuhr: pt.dhuhr, asr: pt.asr, maghrib: pt.maghrib, isha: pt.isha };
   };
 
@@ -176,7 +178,7 @@
 
     items.forEach((it, i) => {
       it.id = ID_BASE + i;
-      it.title = it.kind === 'weekly' ? '📊 ملخص الأسبوع' : '🌿 مسبحة الاستغفار';
+      it.title = App.t(it.kind === 'weekly' ? 'notif_weekly_title' : 'notif_title');
       it.channelId = CHANNELS[r.sound] || CHANNELS.voice;
     });
 
@@ -192,14 +194,16 @@
         ? fill(App.MESSAGES.goalDone[Math.floor(next.getTime() / 60000) % App.MESSAGES.goalDone.length], { goal: s.goal })
         : bodyFor(s, { at: next, kind: 'time', isFirstOfDay: true }, { dayIndex, todayDone, streak: sum.currentStreak, idleDaysBefore });
       fallback = {
+        nextAt: next,
         id: App.NOTIF_IDS.fallback,
         on: { hour: Math.floor(m / 60), minute: m % 60 },
-        title: '🌿 مسبحة الاستغفار',
+        title: App.t('notif_title'),
         body,
         channelId: CHANNELS[r.sound] || CHANNELS.voice
       };
     }
 
-    return { items, fallback, horizonEnd };
+    const nexts = [items[0] && items[0].at, fallback && fallback.nextAt].filter(Boolean).sort((a, b) => a - b);
+    return { items, fallback, horizonEnd, nextAt: nexts[0] || null, goalMetToday: goalMet && r.stopWhenGoalMet };
   };
 })(window.App = window.App || {});

@@ -18,9 +18,9 @@
     if (!ln) return;
     const base = { visibility: 1, lights: true, lightColor: '#2d5a27' };
     const defs = [
-      { id: App.CHANNELS.voice, name: 'تذكير بصوت «أستغفر الله»', importance: 4, sound: 'astaghfar.wav', vibration: true },
-      { id: App.CHANNELS.vibrate, name: 'تذكير بالاهتزاز فقط', importance: 4, sound: 'silence.wav', vibration: true },
-      { id: App.CHANNELS.silent, name: 'تذكير صامت', importance: 2, vibration: false }
+      { id: App.CHANNELS.voice, name: App.t('ch_voice'), importance: 4, sound: 'astaghfar.wav', vibration: true },
+      { id: App.CHANNELS.vibrate, name: App.t('ch_vibrate'), importance: 4, sound: 'silence.wav', vibration: true },
+      { id: App.CHANNELS.silent, name: App.t('ch_silent'), importance: 2, vibration: false }
     ];
     for (const d of defs) {
       try { await ln.createChannel(Object.assign({ description: d.name }, base, d)); } catch (e) {}
@@ -70,8 +70,8 @@
 
   function signature(plan, exact) {
     const parts = plan.items.map((i) => i.id + '|' + i.at.getTime() + '|' + i.body + '|' + i.channelId);
-    if (plan.fallback) parts.push('fb|' + JSON.stringify(plan.fallback));
-    return String(exact) + '#' + parts.join('~');
+    if (plan.fallback) { const { nextAt, ...fb } = plan.fallback; parts.push('fb|' + JSON.stringify(fb)); }
+    return String(exact) + '#' + App.lang.code + '#' + parts.join('~');
   }
 
   // تنفيذ متسلسل (يمنع التداخل)
@@ -94,7 +94,8 @@
     const plan = App.planReminders(s, new Date());
     const exact = await N.exactAllowed();
     const sig = signature(plan, exact);
-    if (!opts.force && localStorage.getItem(SIG_KEY) === sig) return { unchanged: true, count: plan.items.length };
+    const info = { count: plan.items.length + (plan.fallback ? 1 : 0), horizonEnd: plan.horizonEnd, nextAt: plan.nextAt, goalMetToday: plan.goalMetToday, exact };
+    if (!opts.force && localStorage.getItem(SIG_KEY) === sig) return Object.assign({ unchanged: true }, info);
 
     await cancelOurs(ln);
     const toNative = (i) => ({
@@ -127,7 +128,7 @@
       if (App.widget) App.widget.setReminders(plan.items
         .filter((i) => (i.kind === 'time' || i.kind === 'interval') && App.date.dayKey(i.at) === today)
         .map((i) => ({ id: i.id, at: i.at.getTime(), day: today })));
-      return { count: plan.items.length, horizonEnd: plan.horizonEnd };
+      return info;
     } catch (e) {
       console.warn('schedule failed', e);
       localStorage.removeItem(SIG_KEY);
@@ -146,8 +147,8 @@
       await ln.schedule({
         notifications: [{
           id: App.NOTIF_IDS.test,
-          title: '🌿 مسبحة الاستغفار',
-          body: 'أستغفر الله وأتوب إليه — هكذا ستصلك التذكيرات',
+          title: App.t('notif_title'),
+          body: App.t('notif_test_body'),
           channelId: ch,
           smallIcon: 'ic_stat_tasbih'
         }]

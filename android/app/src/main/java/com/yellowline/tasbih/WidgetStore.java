@@ -81,6 +81,20 @@ final class WidgetStore {
             .commit();
     }
 
+    /** نصوص الويدجت بلغة المستخدم (يرسلها التطبيق). */
+    static synchronized void setLabels(Context c, String locale, String left, String done, String tap) {
+        SharedPreferences.Editor e = prefs(c).edit();
+        if (locale != null) e.putString("locale", locale);
+        if (left != null) e.putString("label_left", left);
+        if (done != null) e.putString("label_done", done);
+        if (tap != null) e.putString("label_tap", tap);
+        e.commit();
+    }
+
+    static String label(Context c, String key, String fallback) {
+        return prefs(c).getString(key, fallback);
+    }
+
     static int goal(Context c) {
         return prefs(c).getInt("goal", 0);
     }

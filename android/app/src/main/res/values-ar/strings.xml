@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">مسبحة الاستغفار</string>
+    <string name="title_activity_main">مسبحة الاستغفار</string>
+    <string name="widget_name">مسبحة الاستغفار</string>
+    <string name="widget_description">اضغط للاستغفار مباشرة من الشاشة الرئيسية</string>
+</resources>

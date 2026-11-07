@@ -39,6 +39,7 @@
       },
       cycle: 100,
       theme: 'auto',            // auto | light | dark
+      lang: 'auto',             // auto | ar | en | id | tr | ur | bn | fa | ha
       achievements: {},
       firstRunDone: false,
       weeklySeen: null,

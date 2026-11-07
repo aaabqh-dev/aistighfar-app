@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">İstiğfar Tesbihi</string>
+    <string name="title_activity_main">İstiğfar Tesbihi</string>
+    <string name="widget_name">İstiğfar Tesbihi</string>
+    <string name="widget_description">Ana ekrandan doğrudan istiğfar etmek için dokun</string>
+</resources>

@@ -1,9 +1,9 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">مسبحة الاستغفار</string>
-    <string name="title_activity_main">مسبحة الاستغفار</string>
+    <string name="app_name">Istighfar Tasbih</string>
+    <string name="title_activity_main">Istighfar Tasbih</string>
     <string name="package_name">com.yellowline.tasbih</string>
     <string name="custom_url_scheme">com.yellowline.tasbih</string>
-    <string name="widget_name">مسبحة الاستغفار</string>
-    <string name="widget_description">اضغط للاستغفار مباشرة من الشاشة الرئيسية</string>
+    <string name="widget_name">Istighfar Tasbih</string>
+    <string name="widget_description">Tap to make istighfar right from your home screen</string>
 </resources>

@@ -44,6 +44,13 @@ public class TasbihWidgetPlugin extends Plugin {
         String text = call.getString("text", "أستغفر الله");
         JSArray reminders = call.getArray("reminders", new JSArray());
         WidgetStore.setBase(getContext(), day, count, goal, cycle, text, reminders.toString());
+        WidgetStore.setLabels(
+            getContext(),
+            call.getString("locale"),
+            call.getString("labelLeft"),
+            call.getString("labelDone"),
+            call.getString("labelTap")
+        );
         TasbihWidget.refreshAll(getContext());
         call.resolve();
     }

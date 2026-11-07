@@ -12,10 +12,7 @@
   }
 
   function compact(n) {
-    if (n >= 1e6) return (n / 1e6).toLocaleString('ar-EG', { maximumFractionDigits: 1 }) + ' مليون';
-    if (n >= 1e4) return Math.round(n / 1e3).toLocaleString('ar-EG') + ' ألف';
-    if (n >= 1e3) return (n / 1e3).toLocaleString('ar-EG', { maximumFractionDigits: 1 }) + ' ألف';
-    return n.toLocaleString('ar-EG');
+    return App.fmt.compact(n);
   }
   Ch.compact = compact;
 
@@ -31,7 +28,8 @@
     const y = (v) => top + (H - top - bottom) * (1 - v / max);
 
     data.forEach((d, i) => {
-      const cx = W - side - slot * (i + 0.5); // الأقدم يميناً
+      // العربية والأردو والفارسية: الأقدم يميناً، وغيرها: الأقدم يساراً
+      const cx = App.lang.dir === 'rtl' ? W - side - slot * (i + 0.5) : side + slot * (i + 0.5);
       svg.appendChild(el('rect', { class: 'bar-bg', x: cx - bw / 2, y: top, width: bw, height: H - top - bottom, rx: Math.min(6, bw / 2) }));
       if (d.count > 0) {
         const h = Math.max(3, (H - top - bottom) * (d.count / max));
@@ -82,6 +80,6 @@
     }
     container.replaceChildren(grid);
     // أظهر الأحدث (في الاتجاه العربي يكون يساراً)
-    requestAnimationFrame(() => { container.scrollLeft = -container.scrollWidth; });
+    requestAnimationFrame(() => { container.scrollLeft = App.lang.dir === 'rtl' ? -container.scrollWidth : container.scrollWidth; });
   };
 })(window.App = window.App || {});
