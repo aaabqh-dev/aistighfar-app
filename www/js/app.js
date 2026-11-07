@@ -306,6 +306,13 @@
       box.appendChild(c);
     }
 
+    // تنبيه: التذكيرات مفعّلة لكن أندرويد سيؤخرها
+    if (s.reminders.enabled && App.notify.exactKnown === false) {
+      const c = card('gold', `<p><b>⚠️ تذكيراتك ممكن تتأخر</b><br><span class="muted">اسمح للتطبيق بـ «المنبهات والتذكيرات» عشان يوصلك التذكير في وقته</span></p><div class="row"><button class="btn primary small" type="button" data-exact>السماح</button></div>`);
+      c.querySelector('[data-exact]').onclick = () => App.notify.openExactSettings();
+      box.appendChild(c);
+    }
+
     // ويدجت الشاشة الرئيسية (مرة واحدة)
     if (App.widget.available() && App.widget.installed === 0 && !s.widgetPromptDone) {
       const c = card('', `<p><b>✨ جديد: المسبحة على شاشتك الرئيسية</b><br><span class="muted">استغفر بضغطة من الشاشة الرئيسية بدون ما تفتح التطبيق، ويتحدّث عدّادك وهدفك تلقائياً</span></p><div class="row"><button class="btn primary small" type="button" data-pin>📌 أضفها</button><button class="btn ghost small" type="button" data-no>لاحقاً</button></div>`);
@@ -505,6 +512,21 @@
     App.saveNow();
     renderSettings();
     scheduleSoon(0);
+    if (on) setTimeout(() => ensureExact(), 600);
+  }
+
+  // بدون إذن «المنبهات والتذكيرات» يؤخّر أندرويد التذكيرات (حتى ساعة) لتوفير البطارية
+  async function ensureExact() {
+    if (!App.notify.available() || !s.reminders.enabled) return true;
+    if (await App.notify.exactAllowed()) return true;
+    const go = await ui.confirm({
+      title: 'خطوة مهمة لوصول التذكير ⏰',
+      msg: 'بدون هذا الإذن يؤخّر أندرويد التذكيرات لتوفير البطارية، وأحياناً ما توصل. اضغط «السماح»، ثم فعّل «السماح بضبط المنبهات والتذكيرات» وارجع للتطبيق.',
+      ok: 'السماح',
+      cancel: 'لاحقاً'
+    });
+    if (go) App.notify.openExactSettings();
+    return false;
   }
 
   function renderTimes() {
@@ -618,6 +640,9 @@
     };
     $('remEnabled').onchange = (e) => enableReminders(e.target.checked);
     $('exactBtn').onclick = () => App.notify.openExactSettings();
+    $('batteryBtn').onclick = async () => {
+      if (await ui.confirm({ title: 'البطارية', msg: 'في بعض الجوالات (شاومي، هواوي، أوبو، سامسونج) افتح «البطارية» واختر «غير مقيّد» عشان ما يوقف الجوال التذكيرات.', ok: 'افتح إعدادات التطبيق' })) App.notify.openAppSettings();
+    };
     $('addTimeBtn').onclick = () => {
       const v = $('timeInput').value;
       if (!/^\d{2}:\d{2}$/.test(v)) return;
@@ -640,7 +665,17 @@
     $('weeklyOn').onchange = (e) => { r().weekly = e.target.checked; App.saveNow(); scheduleSoon(); };
     $('testNotifBtn').onclick = async () => {
       if (!App.notify.available()) { ui.toast('تجربة التذكير تعمل داخل التطبيق على الجوال'); return; }
-      ui.toast((await App.notify.test()) ? 'سيصلك تذكير تجريبي بعد ٥ ثوانٍ — اقفل الشاشة وانتظر 🔊' : 'اسمح بالإشعارات أولاً');
+      const r = await App.notify.test();
+      if (r.ok) {
+        ui.toast('أرسلنا تذكيراً الآن 🔊 ما سمعت الصوت؟ تأكد إن الجوال مو على الصامت', 4500);
+        setTimeout(() => ensureExact(), 1800);
+      } else if (r.reason === 'permission') {
+        if (await ui.confirm({ title: 'الإشعارات مقفلة', msg: 'الإشعارات مقفلة لهذا التطبيق من إعدادات الجوال. افتح الإعدادات وفعّل «السماح بالإشعارات».', ok: 'افتح الإعدادات' })) {
+          App.notify.openNotificationSettings();
+        }
+      } else {
+        ui.toast('تعذّر إرسال التذكير: ' + (r.error || ''), 5000);
+      }
     };
 
     $('shareAppBtn').onclick = async () => { await App.share.app(); renderShare(); };
@@ -735,6 +770,10 @@
     }
   }
 
+  async function refreshExactState() {
+    App.notify.exactKnown = App.notify.available() ? await App.notify.exactAllowed() : null;
+  }
+
   // =============== دورة حياة التطبيق ===============
   function onBackground() {
     App.saveNow();
@@ -748,6 +787,7 @@
     const fromWidget = await App.widget.drain(); // ضغطات الويدجت أثناء غياب التطبيق
     if (fromWidget) { checkAchievements(); App.widget.push(); }
     App.widget.refreshInfo();
+    await refreshExactState();
     if (currentTab === 'home') renderHome();
     else if (currentTab === 'stats') renderStats();
     if (s.reminders.enabled && App.notify.available()) {
@@ -785,6 +825,7 @@
     applyTheme();
     await App.widget.drain();
     await App.widget.refreshInfo();
+    await refreshExactState();
     renderHome();
     bindLifecycle();
     if (App.notify.available() && s.reminders.enabled) {

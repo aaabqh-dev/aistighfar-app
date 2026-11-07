@@ -135,23 +135,36 @@
     }
   }
 
+  // تجربة فورية (بدون جدولة): تتأكد من الإذن والقناة والصوت مباشرة
   N.test = async function () {
     const ln = LN();
-    if (!ln) return false;
-    if (!(await N.requestPermission())) return false;
+    if (!ln) return { ok: false, reason: 'web' };
+    if (!(await N.requestPermission())) return { ok: false, reason: 'permission' };
     await N.ensureChannels();
     const ch = App.CHANNELS[App.state.reminders.sound] || App.CHANNELS.voice;
-    await ln.schedule({
-      notifications: [{
-        id: App.NOTIF_IDS.test,
-        title: '🌿 مسبحة الاستغفار',
-        body: 'أستغفر الله وأتوب إليه — هكذا ستصلك التذكيرات',
-        channelId: ch,
-        smallIcon: 'ic_stat_tasbih',
-        schedule: { at: new Date(Date.now() + 5000), allowWhileIdle: true },
-        isExactNotification: false
-      }]
-    });
-    return true;
+    try {
+      await ln.schedule({
+        notifications: [{
+          id: App.NOTIF_IDS.test,
+          title: '🌿 مسبحة الاستغفار',
+          body: 'أستغفر الله وأتوب إليه — هكذا ستصلك التذكيرات',
+          channelId: ch,
+          smallIcon: 'ic_stat_tasbih'
+        }]
+      });
+      return { ok: true };
+    } catch (e) {
+      const msg = String((e && (e.message || e.code)) || e);
+      return { ok: false, reason: /disabled|permission/i.test(msg) ? 'permission' : 'error', error: msg };
+    }
+  };
+
+  // فتح صفحات إعدادات الجوال الخاصة بالتطبيق
+  const Helper = () => App.plugin('TasbihWidget');
+  N.openNotificationSettings = async function () {
+    try { await Helper().openNotificationSettings(); return true; } catch (e) { return false; }
+  };
+  N.openAppSettings = async function () {
+    try { await Helper().openAppSettings(); return true; } catch (e) { return false; }
   };
 })(window.App = window.App || {});

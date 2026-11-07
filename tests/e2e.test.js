@@ -31,7 +31,8 @@ const MOCK = () => {
       checkPermissions: async () => ({ display: 'granted' }), requestPermissions: async () => ({ display: 'granted' }),
       createChannel: async (c) => log.push(['channel', c.id, c.sound || null, c.importance]),
       deleteChannel: async (c) => log.push(['deleteChannel', c.id]),
-      checkExactNotificationSetting: async () => ({ exact_alarm: 'denied' }),
+      checkExactNotificationSetting: async () => ({ exact_alarm: window.__exact || 'denied' }),
+      changeExactNotificationSetting: async () => { log.push(['openExact']); },
       getPending: async () => ({ notifications: (window.__pending || []).map((id) => ({ id })) }),
       cancel: async (o) => { const ids = o.notifications.map((x) => x.id); window.__pending = (window.__pending || []).filter((i) => !ids.includes(i)); log.push(['cancel', ids.length]); },
       schedule: async (o) => { o.notifications.forEach((x) => (window.__pending = (window.__pending || []).concat(x.id))); window.__lastSchedule = (window.__lastSchedule || []).concat(o.notifications); log.push(['schedule', o.notifications.length]); },
@@ -137,11 +138,28 @@ const MOCK = () => {
   // ٣) تفعيل التذكير
   await p.click('.tabbar button[data-tab="settings"]');
   await p.click('#remEnabled + .slider');
-  await p.waitForTimeout(500);
+  await p.waitForTimeout(1200);
+  // شرح إذن الدقة يظهر مباشرة بعد التفعيل
+  assert.match(await p.textContent('#modalTitle'), /خطوة مهمة/);
+  await p.click('#modalOk');
+  assert.ok((await p.evaluate(() => window.__log)).some((l) => l[0] === 'openExact'));
+  ok('بعد التفعيل يشرح ويفتح إذن «المنبهات والتذكيرات»');
+
+  // التذكير التجريبي يُرسل فوراً (بدون جدولة)
+  await p.evaluate(() => { window.__lastSchedule = []; });
+  await p.click('#testNotifBtn');
+  await p.waitForTimeout(300);
+  const test = await p.evaluate(() => window.__lastSchedule.find((x) => x.id === 9999));
+  assert.ok(test && !test.schedule, 'test notification should be immediate');
+  await p.waitForTimeout(2000);
+  if (await p.isVisible('#modal')) await p.click('#modalCancel');
+  ok('«جرّب التذكير الآن» يرسل إشعاراً فورياً');
+  await p.evaluate(() => App.notify.reschedule({ force: true }));
+  await p.waitForTimeout(300);
   let log = await p.evaluate(() => window.__log);
   assert.ok(log.some((l) => l[0] === 'channel' && l[1] === 'tasbih_vibrate_v1' && l[2] === 'silence.wav'));
   assert.ok(log.some((l) => l[0] === 'deleteChannel'));
-  const sched = await p.evaluate(() => window.__lastSchedule);
+  const sched = await p.evaluate(() => window.__lastSchedule.filter((x) => x.id !== 9999));
   assert.ok(sched.length > 5, 'scheduled ' + sched.length);
   assert.ok(sched.every((x) => x.isExactNotification === false)); // بدون إذن الدقة
   const fb = sched.find((x) => x.id === 900);
@@ -153,9 +171,21 @@ const MOCK = () => {
   const todayStr = await p.evaluate(() => App.date.dayKey(new Date()));
   const todayItems = sched.filter((x) => x.id !== 900 && App_dayKey(x));
   function App_dayKey() { return false; }
-  const todayLeft = await p.evaluate(() => (window.__lastSchedule || []).filter((x) => x.id !== 900 && x.schedule.at && App.date.dayKey(new Date(x.schedule.at)) === App.date.dayKey(new Date()) && (x.extra || {}).kind !== 'prayer' && (x.extra || {}).kind !== 'weekly').length);
+  const todayLeft = await p.evaluate(() => (window.__lastSchedule || []).filter((x) => x.id !== 900 && x.schedule && x.schedule.at && App.date.dayKey(new Date(x.schedule.at)) === App.date.dayKey(new Date()) && (x.extra || {}).kind !== 'prayer' && (x.extra || {}).kind !== 'weekly').length);
   assert.equal(todayLeft, 0);
   ok('بعد تحقيق الهدف لا تُجدول تذكيرات استغفار لبقية اليوم');
+
+  // تنبيه الرئيسية حين الإذن ناقص، ويختفي بعد منحه
+  await p.click('.tabbar button[data-tab="home"]');
+  assert.match(await p.textContent('#homeCards'), /تذكيراتك ممكن تتأخر/);
+  await p.evaluate(() => { window.__exact = 'granted'; window.__lastSchedule = []; window.__fire('appStateChange', { isActive: true }); });
+  await p.waitForTimeout(1200);
+  assert.ok(!/تذكيراتك ممكن تتأخر/.test(await p.textContent('#homeCards')));
+  const exactNow = await p.evaluate(() => window.__lastSchedule.length > 0 && window.__lastSchedule.every((x) => x.isExactNotification === true));
+  assert.ok(exactNow, 'after granting, reminders rescheduled as exact');
+  ok('تنبيه «تذكيراتك ممكن تتأخر» يختفي بعد السماح، وتُعاد الجدولة بدقة');
+  await p.evaluate(() => { window.__exact = 'denied'; });
+  await p.click('.tabbar button[data-tab="settings"]');
 
   // ٤) رفع العدد للداعي عند الخروج من التطبيق
   await p.evaluate(() => { App.cloud.pushProgress(true); });

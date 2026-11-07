@@ -2,7 +2,10 @@ package com.yellowline.tasbih;
 
 import android.appwidget.AppWidgetManager;
 import android.content.ComponentName;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Build;
+import android.provider.Settings;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -71,5 +74,37 @@ public class TasbihWidgetPlugin extends Plugin {
         }
         ret.put("requested", requested);
         call.resolve(ret);
+    }
+
+    /** يفتح إعدادات الإشعارات الخاصة بالتطبيق. */
+    @PluginMethod
+    public void openNotificationSettings(PluginCall call) {
+        Intent i = new Intent();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            i.setAction(Settings.ACTION_APP_NOTIFICATION_SETTINGS);
+            i.putExtra(Settings.EXTRA_APP_PACKAGE, getContext().getPackageName());
+        } else {
+            i.setAction(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+            i.setData(Uri.parse("package:" + getContext().getPackageName()));
+        }
+        startSettings(call, i);
+    }
+
+    /** يفتح صفحة معلومات التطبيق (ومنها البطارية). */
+    @PluginMethod
+    public void openAppSettings(PluginCall call) {
+        Intent i = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+        i.setData(Uri.parse("package:" + getContext().getPackageName()));
+        startSettings(call, i);
+    }
+
+    private void startSettings(PluginCall call, Intent i) {
+        try {
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(i);
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("settings-unavailable");
+        }
     }
 }
